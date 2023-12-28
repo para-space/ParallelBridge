@@ -8,13 +8,19 @@ import {IStrategy} from "../interfaces/IStrategy.sol";
 import {RescueFundsLib} from "./RescueFundsLib.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-// @todo: separate our connecter plugs
+// add report external function (called from cron)
+// call report from withdraw and deposit too (with timestamp check, settable by admin)
+// pausable vault
+// redeem all from strategy and detach
+// reentrancy guard
+
 contract YVault is Gauge, Ownable2Step, ERC4626 {
     using SafeTransferLib for ERC20;
     ERC20 public immutable token__;
 
     uint256 public totalIdle; // Amount of tokens that are in the vault
     uint256 public totalDebt; // Amount of tokens that strategy have borrowed
+
     uint256 public totalProfit; // Amount of tokens that strategy have earned
     uint256 public totalLoss; // Amount of tokens that strategy have lost
     uint256 public debtRatio; // Debt ratio for the Vault (in BPS, <= 10k)
