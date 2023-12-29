@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity 0.8.13;
+pragma solidity 0.8.19;
 
 import "solmate/mixins/ERC4626.sol";
 import "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Gauge} from "./Gauge.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
-import {RescueFundsLib} from "./RescueFundsLib.sol";
+import "./RescueFundsLib.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
-// add report external function (called from cron)
-// call report from withdraw and deposit too (with timestamp check, settable by admin)
+
+// add rebalance external function (called from cron)
+// call rebalance from withdraw and deposit too (with timestamp check, settable by admin)
 // pausable vault
 // redeem all from strategy and detach
 // reentrancy guard
+
+
+
 
 contract YVault is Gauge, Ownable2Step, ERC4626 {
     using SafeTransferLib for ERC20;
@@ -20,11 +25,12 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
 
     uint256 public totalIdle; // Amount of tokens that are in the vault
     uint256 public totalDebt; // Amount of tokens that strategy have borrowed
-
-    uint256 public totalProfit; // Amount of tokens that strategy have earned
-    uint256 public totalLoss; // Amount of tokens that strategy have lost
     uint256 public debtRatio; // Debt ratio for the Vault (in BPS, <= 10k)
+    uint128 public lastRebalanceTimestamp; // Timstamp of last rebalance
+    uint128 public rebalanceingDelay; // Delay between rebalances
     address public strategy; // address of the strategy contract
+    bool public emergencyShutdown; // if true, no funds can be invested in the strategy
+
     uint256 public constant MAX_BPS = 10_000;
     struct UpdateLimitParams {
         bool isLock;
@@ -36,9 +42,9 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
     error ConnectorUnavailable();
     error ZeroAmount();
     error DebtRatioTooHigh();
-    error ZeroAddress();
     error InvestingAboveThreshold();
     error NotEnoughAssets();
+    error VaultShutdown();
 
     event LimitParamsUpdated(UpdateLimitParams[] updates);
     event TokensDeposited(address depositor, uint256 depositAmount);
@@ -68,20 +74,19 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
         address receiver,
         uint256 unlockedAmount
     );
-    event WithdrawFromStrategy(uint256 withdrawn, uint256 loss);
+    event WithdrawFromStrategy(uint256 withdrawn);
 
-    event StrategyReported(
-        address strategy,
-        uint256 profit,
-        uint256 loss,
-        uint256 debtPayment,
-        uint256 totalProfit,
-        uint256 totalLoss,
+    event Rebalanced(
+        uint256 totalIdle,
         uint256 totalDebt,
         uint256 credit,
-        uint256 debtRatio
+        uint256 debtOutstanding
     );
 
+    modifier notShutdown() {
+        if (emergencyShutdown) revert VaultShutdown();
+        _;
+    }
     constructor(
         address token_,
         string memory name_,
@@ -98,6 +103,14 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
     function setStrategy(address strategy_) external onlyOwner {
         if (strategy_ == address(0)) revert ZeroAddress();
         strategy = strategy_;
+    }
+
+    function setRebalanceingDelay(address rebalanceingDelay_) external onlyOwner {
+        rebalanceingDelay = rebalanceingDelay_;
+    }
+
+    function updateEmergencyShutdownState(bool shutdownState_) external onlyOwner {
+        emergencyShutdown = shutdownState_;
     }
 
     /// @notice Returns the total quantity of all assets under control of this
@@ -117,9 +130,10 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
     function deposit(
         uint256 assets_,
         address receiver_
-    ) public override returns (uint256) {
+    ) public override nonReentrant notShutdown returns (uint256) {
         if (receiver_ == address(0)) revert ZeroAddress();
         totalIdle += assets_;
+        _checkDelayAndRebalance();
         return super.deposit(assets_, receiver_);
     }
 
@@ -127,134 +141,69 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
         uint256 assets_,
         address receiver_,
         address owner_
-    ) public override returns (uint256) {
+    ) external override nonReentrant notShutdown returns (uint256) {
         if (receiver_ == address(0)) revert ZeroAddress();
         if (assets_ > totalIdle) revert NotEnoughAssets();
 
         totalIdle -= assets_;
+        _checkDelayAndRebalance();
         return super.withdraw(assets_, receiver_, owner_);
     }
 
     function withdrawFromStrategy(
         uint256 assets_
     ) external onlyOwner returns (uint256) {
+        _witndrawFromStrategy(assets_);
+    }
+
+    function _withdrawFromStrategy(
+        uint256 assets_
+    ) internal returns (uint256) {
         uint256 preBalance = token__.balanceOf(address(this));
-        uint256 loss = IStrategy(strategy).withdraw(assets_);
+        IStrategy(strategy).withdraw(assets_);
         uint256 withdrawn = token__.balanceOf(address(this)) - preBalance;
         totalIdle += withdrawn;
         totalDebt -= withdrawn;
-        if (loss > 0) _reportLoss(loss);
-        emit WithdrawFromStrategy(withdrawn, loss);
+        emit WithdrawFromStrategy(withdrawn);
         return withdrawn;
     }
+
 
     function maxAvailableShares() public view returns (uint256) {
         return convertToShares(_totalAssets());
     }
 
-    function report(
-        uint256 profit_,
-        uint256 loss_,
-        uint256 debtPayment_
-    ) external returns (uint256) {
-        // Only approved strategies can call this function
-        require(msg.sender == strategy, "Not a strategy");
+    function rebalance() external notShutdown returns (uint256) {
+        _rebalance();
+    }
 
-        // No lying about total available to withdraw
-        require(
-            token__.balanceOf(msg.sender) >= profit_ + debtPayment_,
-            "Insufficient balance for reporting"
-        );
+    function _checkDelayAndRebalance() internal returns (uint256) {
 
-        // We have a loss to report, do it before the rest of the calculations
-        if (loss_ > 0) _reportLoss(loss_);
-
-        // Returns are always "realized profits"
-        totalProfit += profit_;
-
-        // Compute the line of credit the Vault is able to offer the Strategy (if any)
-        uint256 credit = _creditAvailable();
-
-        // Outstanding debt the Strategy wants to take back from the Vault (if any)
-        // debtOutstanding <= StrategyParams.totalDebt
-        uint256 debt = _debtOutstanding();
-        uint256 debtPayment = Math.min(debtPayment_, debt);
-
-        if (debtPayment > 0) {
-            totalDebt -= debtPayment;
-            debt -= debtPayment;
-        }
-
-        // Update the actual debt based on the full credit we are extending to the Strategy
-        // or the returns if we are taking funds back
-        // credit + strategies[msg.sender].totalDebt is always < debtLimit
-        // At least one of credit or debt is always 0 (both can be 0)
-        if (credit > 0) totalDebt += credit;
-
-        // Give/take balance to Strategy, based on the difference between the reported profits
-        // (if any), the debt payment (if any), the credit increase we are offering (if any),
-        // and the debt needed to be paid off (if any)
-        // This is just used to adjust the balance of tokens between the Strategy and
-        // the Vault based on the Strategy's debt limit (as well as the Vault's).
-        uint256 totalAvailable = profit_ + debtPayment;
-
-        if (totalAvailable < credit) {
-            // Credit surplus, give to Strategy
-            totalIdle -= credit - totalAvailable;
-            token__.safeTransfer(msg.sender, credit - totalAvailable);
-        } else if (totalAvailable > credit) {
-            // Credit deficit, take from Strategy
-            totalIdle += totalAvailable - credit;
-            token__.safeTransferFrom(
-                msg.sender,
-                address(this),
-                totalAvailable - credit
-            );
-        }
-        // else, don't do anything because it is balanced
-
-        // Profit is locked and gradually released per block
-        // compute current locked profit and replace with sum of current and new
-        // uint256 lockedProfitBeforeLoss = _calculateLockedProfit() + profit - totalFees;
-
-        // if (lockedProfitBeforeLoss > loss) {
-        //     lockedProfit = lockedProfitBeforeLoss - loss;
-        // } else {
-        //     lockedProfit = 0;
-        // }
-
-        // Update reporting time
-        // strategies[msg.sender].lastReport = block.timestamp;
-        // lastReport = block.timestamp;
-
-        emit StrategyReported(
-            msg.sender,
-            profit_,
-            loss_,
-            debtPayment,
-            totalProfit,
-            totalLoss,
-            totalDebt,
-            credit,
-            debtRatio
-        );
-
-        if (debtRatio == 0) {
-            // Take every last penny the Strategy has (Emergency Exit/revokeStrategy)
-            // This is different than debt in order to extract *all* of the returns
-            return IStrategy(msg.sender).estimatedTotalAssets();
-        } else {
-            // Otherwise, just return what we have as debt outstanding
-            return debt;
+        uint128 timeElapsed = uint128(block.timestamp) - lastRebalanceTimestamp;
+        if (timeElapsed >= rebalanceingDelay) {
+            return _rebalance();
         }
     }
 
-    function _reportLoss(uint256 loss) internal {
-        // Loss can only be up to the amount of debt issued to strategy
-        require(totalDebt >= loss, "Loss exceeds total debt");
-        // Adjust strategy's parameters by the loss
-        totalLoss += loss;
-        totalDebt -= loss;
+    function _rebalance() internal returns (uint256) {
+
+        // Compute the line of credit the Vault is able to offer the Strategy (if any)
+        uint256 credit = _creditAvailable();
+        uint256 pendingDebt = _debtOutstanding();
+
+        if (credit>0) {
+            // Credit surplus, give to Strategy
+            totalIdle -= credit;
+            totalDebt += credit;
+            token__.safeTransfer(strategy, credit);
+            IStrategy(strategy).invest();
+
+        } else if (pendingDebt > 0) {
+            // Credit deficit, take from Strategy
+            _withdrawFromStrategy(pendingDebt);
+        }
+
+        emit Rebalanced(totalIdle, totalDebt, credit, debtOutstanding);
     }
 
     function _creditAvailable() internal view returns (uint256) {

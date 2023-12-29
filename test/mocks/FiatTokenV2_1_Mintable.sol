@@ -1,4 +1,4 @@
-pragma solidity 0.8.13;
+pragma solidity 0.8.19;
 
 import "../../contracts/superbridge/FiatTokenV2_1/IFiatTokenV2_1_Mintable.sol";
 
