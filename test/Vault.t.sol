@@ -25,7 +25,7 @@ contract TestVault is Test {
     function setUp() external {
         vm.startPrank(_admin);
         _token = new NonMintableToken("USDC", "USDC", 6, 1_000_000_000 ether);
-        _vault = new ParallelVault(address(_token), "ParallelUSDC","pUSDC");
+        _vault = new ParallelVault(address(_token), "ParallelUSDC", "pUSDC");
         vm.stopPrank();
     }
 

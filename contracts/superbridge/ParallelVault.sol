@@ -9,15 +9,11 @@ import "./RescueFundsLib.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
-
 // add rebalance external function (called from cron)
 // call rebalance from withdraw and deposit too (with timestamp check, settable by admin)
 // pausable vault
 // redeem all from strategy and detach
 // reentrancy guard
-
-
-
 
 contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     using SafeTransferLib for ERC20;
@@ -66,14 +62,13 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         uint256 debtOutstanding
     );
 
-        event ShutdownStateUpdated(
-        bool shutdownState
-    );
+    event ShutdownStateUpdated(bool shutdownState);
 
     modifier notShutdown() {
         if (emergencyShutdown) revert VaultShutdown();
         _;
     }
+
     constructor(
         address token_,
         string memory name_,
@@ -91,11 +86,16 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         strategy = strategy_;
     }
 
-    function setRebalanceingDelay(uint128 rebalanceingDelay_) external onlyOwner {
+    function setRebalanceingDelay(
+        uint128 rebalanceingDelay_
+    ) external onlyOwner {
         rebalanceingDelay = rebalanceingDelay_;
     }
 
-    function updateEmergencyShutdownState(bool shutdownState_, bool detachStrategy) external onlyOwner {
+    function updateEmergencyShutdownState(
+        bool shutdownState_,
+        bool detachStrategy
+    ) external onlyOwner {
         if (shutdownState_ && detachStrategy) {
             // If we're exiting emergency shutdown, we need to empty strategy
             _withdrawAllFromStrategy();
@@ -148,9 +148,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         _withdrawFromStrategy(assets_);
     }
 
-    function _withdrawFromStrategy(
-        uint256 assets_
-    ) internal returns (uint256) {
+    function _withdrawFromStrategy(uint256 assets_) internal returns (uint256) {
         uint256 preBalance = token__.balanceOf(address(this));
         IStrategy(strategy).withdraw(assets_);
         uint256 withdrawn = token__.balanceOf(address(this)) - preBalance;
@@ -170,7 +168,6 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         return withdrawn;
     }
 
-
     function maxAvailableShares() public view returns (uint256) {
         return convertToShares(_totalAssets());
     }
@@ -180,7 +177,6 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     }
 
     function _checkDelayAndRebalance() internal returns (uint256) {
-
         uint128 timeElapsed = uint128(block.timestamp) - lastRebalanceTimestamp;
         if (timeElapsed >= rebalanceingDelay) {
             return _rebalance();
@@ -188,20 +184,18 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     }
 
     function _rebalance() internal returns (uint256) {
-
         if (strategy == address(0)) return;
         lastRebalanceTimestamp = uint128(block.timestamp);
         // Compute the line of credit the Vault is able to offer the Strategy (if any)
         uint256 credit = _creditAvailable();
         uint256 pendingDebt = _debtOutstanding();
 
-        if (credit>0) {
+        if (credit > 0) {
             // Credit surplus, give to Strategy
             totalIdle -= credit;
             totalDebt += credit;
             token__.safeTransfer(strategy, credit);
             IStrategy(strategy).invest();
-
         } else if (pendingDebt > 0) {
             // Credit deficit, take from Strategy
             _withdrawFromStrategy(pendingDebt);
