@@ -88,7 +88,6 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     }
 
     function setStrategy(address strategy_) external onlyOwner {
-        if (strategy_ == address(0)) revert ZeroAddress();
         strategy = strategy_;
     }
 
@@ -96,10 +95,11 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         rebalanceingDelay = rebalanceingDelay_;
     }
 
-    function updateEmergencyShutdownState(bool shutdownState_) external onlyOwner {
-        if (shutdownState_) {
+    function updateEmergencyShutdownState(bool shutdownState_, bool detachStrategy) external onlyOwner {
+        if (shutdownState_ && detachStrategy) {
             // If we're exiting emergency shutdown, we need to empty strategy
             _withdrawAllFromStrategy();
+            strategy = address(0);
         }
         emergencyShutdown = shutdownState_;
         emit ShutdownStateUpdated(shutdownState_);
@@ -189,6 +189,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
 
     function _rebalance() internal returns (uint256) {
 
+        if (strategy == address(0)) return;
         lastRebalanceTimestamp = uint128(block.timestamp);
         // Compute the line of credit the Vault is able to offer the Strategy (if any)
         uint256 credit = _creditAvailable();
