@@ -2,7 +2,8 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "./mocks/NonMintableToken.sol";
-import "../contracts/superbridge/YVault.sol";
+import "./mocks/MintableToken.sol";
+import "../contracts/superbridge/ParallelVault.sol";
 
 contract TestVault is Test {
     uint256 _c;
@@ -19,12 +20,12 @@ contract TestVault is Test {
     uint256 constant _msgGasLimit = 200_000;
     uint256 constant _bootstrapTime = 100;
     ERC20 _token;
-    Vault _vault;
+    ParallelVault _vault;
 
     function setUp() external {
         vm.startPrank(_admin);
-        _token = new NonMintableToken("Moon", "MOON", 18, 1_000_000_000 ether);
-        _vault = new Vault(address(_token));
+        _token = new NonMintableToken("USDC", "USDC", 6, 1_000_000_000 ether);
+        _vault = new ParallelVault(address(_token), "ParallelUSDC","pUSDC");
         vm.stopPrank();
     }
 
@@ -48,7 +49,7 @@ contract TestVault is Test {
         skip(_bootstrapTime);
     }
 
-    function testUpdateLimitParams() external {
+    function testMintShares() external {
         _setLimits();
 
         Vault.LimitParams memory lockLimitParams = _vault.getLockLimitParams(

@@ -19,7 +19,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 
 
-contract YVault is Gauge, Ownable2Step, ERC4626 {
+contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     using SafeTransferLib for ERC20;
     ERC20 public immutable token__;
 
@@ -57,23 +57,6 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
         uint256 depositAmount
     );
 
-    event PendingTokensTransferred(
-        address connector,
-        address receiver,
-        uint256 unlockedAmount,
-        uint256 pendingAmount
-    );
-    event TokensPending(
-        address connector,
-        address receiver,
-        uint256 pendingAmount,
-        uint256 totalPendingAmount
-    );
-    event TokensUnlocked(
-        address connector,
-        address receiver,
-        uint256 unlockedAmount
-    );
     event WithdrawFromStrategy(uint256 withdrawn);
 
     event Rebalanced(
@@ -81,6 +64,10 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
         uint256 totalDebt,
         uint256 credit,
         uint256 debtOutstanding
+    );
+
+        event ShutdownStateUpdated(
+        bool shutdownState
     );
 
     modifier notShutdown() {
@@ -110,7 +97,12 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
     }
 
     function updateEmergencyShutdownState(bool shutdownState_) external onlyOwner {
+        if (shutdownState_) {
+            // If we're exiting emergency shutdown, we need to empty strategy
+            _withdrawAllFromStrategy();
+        }
         emergencyShutdown = shutdownState_;
+        emit ShutdownStateUpdated(shutdownState_);
     }
 
     /// @notice Returns the total quantity of all assets under control of this
@@ -153,7 +145,7 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
     function withdrawFromStrategy(
         uint256 assets_
     ) external onlyOwner returns (uint256) {
-        _witndrawFromStrategy(assets_);
+        _withdrawFromStrategy(assets_);
     }
 
     function _withdrawFromStrategy(
@@ -164,6 +156,16 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
         uint256 withdrawn = token__.balanceOf(address(this)) - preBalance;
         totalIdle += withdrawn;
         totalDebt -= withdrawn;
+        emit WithdrawFromStrategy(withdrawn);
+        return withdrawn;
+    }
+
+    function _withdrawAllFromStrategy() internal returns (uint256) {
+        uint256 preBalance = token__.balanceOf(address(this));
+        IStrategy(strategy).withdrawAll();
+        uint256 withdrawn = token__.balanceOf(address(this)) - preBalance;
+        totalIdle += withdrawn;
+        totalDebt = 0;
         emit WithdrawFromStrategy(withdrawn);
         return withdrawn;
     }
@@ -187,6 +189,7 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
 
     function _rebalance() internal returns (uint256) {
 
+        lastRebalanceTimestamp = uint128(block.timestamp);
         // Compute the line of credit the Vault is able to offer the Strategy (if any)
         uint256 credit = _creditAvailable();
         uint256 pendingDebt = _debtOutstanding();
@@ -203,7 +206,7 @@ contract YVault is Gauge, Ownable2Step, ERC4626 {
             _withdrawFromStrategy(pendingDebt);
         }
 
-        emit Rebalanced(totalIdle, totalDebt, credit, debtOutstanding);
+        emit Rebalanced(totalIdle, totalDebt, credit, pendingDebt);
     }
 
     function _creditAvailable() internal view returns (uint256) {
