@@ -92,7 +92,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         strategy = strategy_;
     }
 
-    function setRebalanceingDelay(address rebalanceingDelay_) external onlyOwner {
+    function setRebalanceingDelay(uint128 rebalanceingDelay_) external onlyOwner {
         rebalanceingDelay = rebalanceingDelay_;
     }
 
@@ -133,7 +133,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         uint256 assets_,
         address receiver_,
         address owner_
-    ) external override nonReentrant notShutdown returns (uint256) {
+    ) public override nonReentrant notShutdown returns (uint256) {
         if (receiver_ == address(0)) revert ZeroAddress();
         if (assets_ > totalIdle) revert NotEnoughAssets();
 
