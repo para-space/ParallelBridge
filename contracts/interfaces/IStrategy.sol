@@ -5,10 +5,10 @@ interface IStrategy {
 
     function withdrawAll() external;
 
-    function estimatedTotalAssets()
+    function totalYieldAsset()
         external
         view
         returns (uint256 totalAssets_);
 
-    function invest() external;
+    function invest(uint256 amount_) external;
 }

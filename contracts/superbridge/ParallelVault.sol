@@ -26,6 +26,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     uint128 public rebalanceingDelay; // Delay between rebalances
     address public strategy; // address of the strategy contract
     bool public emergencyShutdown; // if true, no funds can be invested in the strategy
+    bool public isWithdrawwable; // if true, user can withdraw asset from vault
 
     uint256 public constant MAX_BPS = 10_000;
     struct UpdateLimitParams {
@@ -41,6 +42,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     error InvestingAboveThreshold();
     error NotEnoughAssets();
     error VaultShutdown();
+    error NotWithdrawable();
 
     event LimitParamsUpdated(UpdateLimitParams[] updates);
     event TokensDeposited(address depositor, uint256 depositAmount);
@@ -66,6 +68,11 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
 
     modifier notShutdown() {
         if (emergencyShutdown) revert VaultShutdown();
+        _;
+    }
+
+    modifier onlyWithdrawable() {
+        if (!isWithdrawwable) revert NotWithdrawable();
         _;
     }
 
@@ -105,6 +112,10 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         emit ShutdownStateUpdated(shutdownState_);
     }
 
+    function setWithdrawable(bool _isWithdrawwable) external onlyOwner {
+        isWithdrawwable = _isWithdrawwable;
+    }
+
     /// @notice Returns the total quantity of all assets under control of this
     ///    Vault, whether they're loaned out to a Strategy, or currently held in
     /// the Vault.
@@ -113,6 +124,10 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
     ///    Vault
     function totalAssets() public view override returns (uint256) {
         return _totalAssets();
+    }
+
+    function totalYield() external view returns (uint256) {
+        return IStrategy(strategy).totalYieldAsset();
     }
 
     function _totalAssets() internal view returns (uint256) {
@@ -133,7 +148,7 @@ contract ParallelVault is Gauge, Ownable2Step, ERC4626, ReentrancyGuard {
         uint256 assets_,
         address receiver_,
         address owner_
-    ) public override nonReentrant notShutdown returns (uint256) {
+    ) public override nonReentrant notShutdown onlyWithdrawable returns (uint256) {
         if (receiver_ == address(0)) revert ZeroAddress();
         if (assets_ > totalIdle) revert NotEnoughAssets();
 
