@@ -1,20 +1,13 @@
 import { ChainSlug, IntegrationTypes } from "./core";
 
 export enum Tokens {
-  Moon = "MOON",
   USDC = "USDC",
   WETH = "WETH",
 }
 
 export enum Project {
-  AEVO = "aevo",
-  AEVO_TESTNET = "aevo-testnet",
-  LYRA_TESTNET = "lyra-testnet",
-  LYRA = "lyra",
-  SX_NETWORK_TESTNET = "sx-network-testnet",
-  SOCKET_DEV = "socket-dev",
+  Sepolia = "Sepolia",
   MODE_TESTNET = "mode-testnet",
-  VICTION_TESTNET = "viction-testnet",
 }
 
 export enum SuperBridgeContracts {
@@ -25,6 +18,12 @@ export enum SuperBridgeContracts {
   FiatTokenV2_1_Controller = "FiatTokenV2_1_Controller",
   ExchangeRate = "ExchangeRate",
   ConnectorPlug = "ConnectorPlug",
+}
+
+export enum ParallelContracts {
+  ParallelVault = "ParallelVault",
+  AaveStrategy = "AaveStrategy",
+  VaultProxy = "VaultProxy",
 }
 
 export type ProjectAddresses = {
@@ -61,12 +60,5 @@ export type ConnectorAddresses = {
 };
 
 export const ChainSlugToProject: { [chainSlug in ChainSlug]?: Project } = {
-  [ChainSlug.AEVO]: Project.AEVO,
-  [ChainSlug.AEVO_TESTNET]: Project.AEVO_TESTNET,
-  [ChainSlug.LYRA_TESTNET]: Project.LYRA_TESTNET,
-  [ChainSlug.LYRA]: Project.LYRA,
-  [ChainSlug.SX_NETWORK_TESTNET]: Project.SX_NETWORK_TESTNET,
-  [ChainSlug.OPTIMISM_SEPOLIA]: Project.SOCKET_DEV,
-  [ChainSlug.MODE_TESTNET]: Project.MODE_TESTNET,
-  [ChainSlug.VICTION_TESTNET]: Project.VICTION_TESTNET,
+  [ChainSlug.SEPOLIA]: Project.Sepolia,
 };

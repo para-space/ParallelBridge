@@ -39,16 +39,18 @@
   },
   "scripts": {
     "lint": "prettier \"./**\" --write",
-    "build": "hardhat export-abi && tsc --project lib.tsconfig.json",
-    "abi": "hardhat export-abi",
-    "compile": "forge build",
-    "test": "forge test"
+    "build": "hardhat compile",
+    "deploy": "hardhat run script/deploy/deploy.ts",
+    "size": "hardhat size-contracts",
+    "abi": "hardhat export-abi"
   },
   "pre-commit": [
     "lint",
     "compile"
   ],
   "dependencies": {
+    "@openzeppelin/contracts": "^5.0.1",
+    "@openzeppelin/contracts-upgradeable": "^5.0.1",
     "@socket.tech/dl-core": "2.4.15-test.1"
   }
 }

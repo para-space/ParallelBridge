@@ -19,14 +19,14 @@ import {
   createObj,
   getProjectAddresses,
   getOrDeploy,
-  storeAddresses,
+  storeAddresses, deployContractWithArgs,
 } from "../helpers/utils";
 import {
   AppChainAddresses,
   SuperBridgeContracts,
   NonAppChainAddresses,
   ProjectAddresses,
-  TokenAddresses,
+  TokenAddresses, ParallelContracts,
 } from "../../src";
 
 export interface ReturnObj {
@@ -38,47 +38,69 @@ export interface ReturnObj {
  * Deploys contracts for all networks
  */
 export const main = async () => {
-  try {
-    let addresses: ProjectAddresses;
-    try {
-      addresses = await getProjectAddresses();
-    } catch (error) {
-      addresses = {} as ProjectAddresses;
-    }
 
-    await Promise.all(
-      [projectConstants.appChain, ...projectConstants.nonAppChains].map(
-        async (chain: ChainSlug) => {
-          let allDeployed = false;
-          const signer = getSignerFromChainSlug(chain);
-
-          let chainAddresses: TokenAddresses = addresses[chain]?.[token]
-            ? (addresses[chain]?.[token] as TokenAddresses)
-            : ({} as TokenAddresses);
-
-          const siblings = isAppChain(chain)
-            ? projectConstants.nonAppChains
-            : [projectConstants.appChain];
-
-          while (!allDeployed) {
-            const results: ReturnObj = await deploy(
-              isAppChain(chain),
-              signer,
-              chain,
-              siblings,
-              chainAddresses
-            );
-
-            allDeployed = results.allDeployed;
-            chainAddresses = results.deployedAddresses;
-          }
-        }
-      )
-    );
-  } catch (error) {
-    console.log("Error in deploying contracts", error);
-  }
+  deployContractWithArgs()
+  // try {
+  //   let addresses: ProjectAddresses;
+  //   try {
+  //     addresses = await getProjectAddresses();
+  //   } catch (error) {
+  //     addresses = {} as ProjectAddresses;
+  //   }
+  //
+  //   await Promise.all(
+  //     [projectConstants.appChain, ...projectConstants.nonAppChains].map(
+  //       async (chain: ChainSlug) => {
+  //         let allDeployed = false;
+  //         const signer = getSignerFromChainSlug(chain);
+  //
+  //         let chainAddresses: TokenAddresses = addresses[chain]?.[token]
+  //           ? (addresses[chain]?.[token] as TokenAddresses)
+  //           : ({} as TokenAddresses);
+  //
+  //         const siblings = isAppChain(chain)
+  //           ? projectConstants.nonAppChains
+  //           : [projectConstants.appChain];
+  //
+  //         while (!allDeployed) {
+  //           const results: ReturnObj = await deploy(
+  //             isAppChain(chain),
+  //             signer,
+  //             chain,
+  //             siblings,
+  //             chainAddresses
+  //           );
+  //
+  //           allDeployed = results.allDeployed;
+  //           chainAddresses = results.deployedAddresses;
+  //         }
+  //       }
+  //     )
+  //   );
+  // } catch (error) {
+  //   console.log("Error in deploying contracts", error);
+  // }
 };
+
+const deployVaultImpl = async (
+    signer: Wallet,
+    deployParams: DeployParams
+): Promise<DeployParams> => {
+  const vaultImpl: Contract = await getOrDeploy(
+      ParallelContracts.ParallelVault,
+      "contracts/superbridge/ParallelVault.sol",
+      [],
+      deployParams
+      );
+
+  deployParams.addresses = createObj(
+      deployParams.addresses,
+      ["ParallelVault"],
+      vaultImpl.address
+  );
+
+  return deployParams;
+}
 
 /**
  * Deploys network-independent contracts

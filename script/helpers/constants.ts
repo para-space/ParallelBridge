@@ -70,221 +70,11 @@ export type ProjectConstants = {
 };
 
 const _projectConstants: ProjectConstants = {
-  [Project.AEVO_TESTNET]: {
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.AEVO_TESTNET,
-        nonAppChains: [ChainSlug.ARBITRUM_SEPOLIA, ChainSlug.OPTIMISM_SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "50000",
-            depositRate: "0.5787",
-            withdrawLimit: "50000",
-            withdrawRate: "0.5787",
-            poolCount: 0,
-          },
-        },
-      },
-      [Tokens.WETH]: {
-        appChain: ChainSlug.AEVO_TESTNET,
-        nonAppChains: [ChainSlug.ARBITRUM_SEPOLIA, ChainSlug.OPTIMISM_SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "100",
-            depositRate: "0.0011574",
-            withdrawLimit: "100",
-            withdrawRate: "0.0011574",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.AEVO]: {
-    [DeploymentMode.DEV]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.AEVO_TESTNET,
-        nonAppChains: [ChainSlug.ARBITRUM_GOERLI, ChainSlug.OPTIMISM_GOERLI],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "50000",
-            depositRate: "0.5787",
-            withdrawLimit: "50000",
-            withdrawRate: "0.5787",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.AEVO,
-        nonAppChains: [ChainSlug.ARBITRUM, ChainSlug.OPTIMISM],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "5000000",
-            // depositRate: "5000000",
-            depositRate: "57.87",
-            withdrawLimit: "5000000",
-            // withdrawRate: "5000000",
-            withdrawRate: "57.87",
-            poolCount: 0,
-          },
-        },
-      },
-      [Tokens.WETH]: {
-        appChain: ChainSlug.AEVO,
-        nonAppChains: [ChainSlug.ARBITRUM, ChainSlug.OPTIMISM],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "2000",
-            // depositRate: "2000",
-            depositRate: "0.02314815",
-            withdrawLimit: "2000",
-            // withdrawRate: "2000",
-            withdrawRate: "0.02314815",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.LYRA_TESTNET]: {
-    [DeploymentMode.DEV]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.LYRA_TESTNET,
-        nonAppChains: [ChainSlug.ARBITRUM_GOERLI, ChainSlug.OPTIMISM_GOERLI],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "10000",
-            depositRate: "0.11574",
-            withdrawLimit: "10000",
-            withdrawRate: "0.11574",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.LYRA_TESTNET,
-        nonAppChains: [ChainSlug.SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "100000",
-            depositRate: "1.1574",
-            withdrawLimit: "100000",
-            withdrawRate: "1.1574",
-            poolCount: 0,
-          },
-          [IntegrationTypes.native]: {
-            depositLimit: "100000",
-            depositRate: "1.1574",
-            withdrawLimit: "0",
-            withdrawRate: "0",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.LYRA]: {
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.LYRA,
-        nonAppChains: [ChainSlug.MAINNET],
-        isFiatTokenV2_1: true,
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "10000000",
-            // depositRate: "10000000",
-            depositRate: "115.74",
-            withdrawLimit: "1000000",
-            // withdrawRate: "1000000",
-            withdrawRate: "11.574",
-            poolCount: 0,
-          },
-          [IntegrationTypes.native]: {
-            depositLimit: "10000000",
-            // depositRate: "10000000",
-            depositRate: "115.74",
-            withdrawLimit: "0",
-            withdrawRate: "0",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.SX_NETWORK_TESTNET]: {
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.SX_NETWORK_TESTNET,
-        nonAppChains: [ChainSlug.POLYGON_MUMBAI, ChainSlug.SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "10000",
-            depositRate: "0.11574",
-            withdrawLimit: "10000",
-            withdrawRate: "0.11574",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.SOCKET_DEV]: {
-    [DeploymentMode.DEV]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.OPTIMISM_SEPOLIA,
-        nonAppChains: [ChainSlug.ARBITRUM_SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "10000",
-            depositRate: "0.11574",
-            withdrawLimit: "10000",
-            withdrawRate: "0.11574",
-            poolCount: 0,
-          },
-        },
-      },
-      [Tokens.WETH]: {
-        appChain: ChainSlug.OPTIMISM_SEPOLIA,
-        nonAppChains: [ChainSlug.ARBITRUM_SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "100",
-            depositRate: "0.0011574",
-            withdrawLimit: "100",
-            withdrawRate: "0.0011574",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
   [Project.MODE_TESTNET]: {
-    [DeploymentMode.PROD]: {
+    [DeploymentMode.DEV]: {
       [Tokens.USDC]: {
         appChain: ChainSlug.MODE_TESTNET,
         nonAppChains: [ChainSlug.ARBITRUM_SEPOLIA, ChainSlug.OPTIMISM_SEPOLIA],
-        integrationTypes: {
-          [IntegrationTypes.fast]: {
-            depositLimit: "10000",
-            depositRate: "0.11574",
-            withdrawLimit: "10000",
-            withdrawRate: "0.11574",
-            poolCount: 0,
-          },
-        },
-      },
-    },
-  },
-  [Project.VICTION_TESTNET]: {
-    [DeploymentMode.PROD]: {
-      [Tokens.USDC]: {
-        appChain: ChainSlug.VICTION_TESTNET,
-        nonAppChains: [ChainSlug.SEPOLIA],
         integrationTypes: {
           [IntegrationTypes.fast]: {
             depositLimit: "10000",
@@ -303,19 +93,16 @@ export const isAppChain = (chain: ChainSlug) =>
   projectConstants.appChain === chain;
 
 export const tokenName: { [key in Tokens]: string } = {
-  [Tokens.Moon]: "Moon",
   [Tokens.USDC]: "USD coin",
   [Tokens.WETH]: "Wrapped Ether",
 };
 
 export const tokenSymbol: { [key in Tokens]: string } = {
-  [Tokens.Moon]: "MOON",
   [Tokens.USDC]: "USDC",
   [Tokens.WETH]: "WETH",
 };
 
 export const tokenDecimals: { [key in Tokens]: number } = {
-  [Tokens.Moon]: 18,
   [Tokens.USDC]: 6,
   [Tokens.WETH]: 18,
 };

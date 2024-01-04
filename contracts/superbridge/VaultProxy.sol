@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity 0.8.19;
+pragma solidity 0.8.20;
 
-import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
-contract VaultProxy is TransparentUpgradeableProxy {
+contract VaultProxy is
+    TransparentUpgradeableProxy,
+    ITransparentUpgradeableProxy
+{
     constructor(
         address implementation,
         address admin_
@@ -11,18 +15,15 @@ contract VaultProxy is TransparentUpgradeableProxy {
 
     error OnlyProxyAdmin();
 
-    function changeImpl(address impl) external {
-        if (msg.sender != _getAdmin()) {
+    function upgradeToAndCall(
+        address newImplementation,
+        bytes calldata data
+    ) external payable {
+        if (msg.sender != _proxyAdmin()) {
             revert OnlyProxyAdmin();
         }
-        _upgradeTo(impl);
+        ERC1967Utils.upgradeToAndCall(newImplementation, data);
     }
 
-    function changeAdmin(address admin_) external {
-        if (msg.sender != _getAdmin()) {
-            revert OnlyProxyAdmin();
-        }
-
-        _changeAdmin(admin_);
-    }
+    receive() external payable {}
 }
