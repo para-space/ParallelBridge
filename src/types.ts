@@ -50,20 +50,36 @@ export enum eContractid {
 export enum Tokens {
   USDC = "USDC",
   WETH = "WETH",
-  // USDT = "USDT",
-  // DAI = "DAI",
-  // WBTC = "WBTC",
-  // stETH = "stETH",
-  // rETH = "rETH",
-  // cbETH = "cbETH",
+  USDT = "USDT",
+  DAI = "DAI",
+  WBTC = "WBTC",
+  stETH = "stETH",
+  rETH = "rETH",
+  cbETH = "cbETH",
+  AAVE = "AAVE",
+  LINK = "LINK",
+}
+
+export enum Strategy {
+  AAVE = "AAVE",
+  stETHAAVE = "stETHAAVE",
+}
+
+export interface iAssetCommon<T> {
+  [key: string]: T;
+}
+
+export interface ITokenConfig {
+  address: tEthereumAddress,
+  strategy: Strategy,
 }
 
 export interface IConfiguration {
-  chainid: number;
   vaultOwner: tEthereumAddress;
   vaultUpgradeAdmin: tEthereumAddress;
   strategyOwner: tEthereumAddress;
-
+  aavePool?: tEthereumAddress;
+  Tokens: Partial<Record<Tokens, ITokenConfig>>;
 }
 
 

@@ -49,60 +49,22 @@ const globalOveride = {
   maxFeePerGas: "30000000000", //30G
   maxPriorityFeePerGas: "1000000000", //1G
 };
-export const main = async () => {
-  const provider = new providers.JsonRpcProvider(
-    "https://goerli.infura.io/v3/4416f70f7de745deb9076bf22ddc4f2a"
-  );
-  const signer = new Wallet(socketSignerKey, provider);
-
-  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
-  const Vault = ParallelVaultFactory.attach(
-    "0x73d9148D58E4C8be4614A031cB2A2F9976F60D2b"
-  );
-  await Vault.connect(signer).deposit(
-    "1000000",
-    "0x018281853eCC543Aa251732e8FDaa7323247eBeB"
-  );
-};
 
 /**
  * Deploys contracts for all networks
  */
-export const main1 = async () => {
-  // const chainSlug = ChainSlug.SEPOLIA;
-  // const signer = getSignerFromChainSlug(chainSlug);
-
-  //const provider = new providers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/i2FuPUl5I0z6aCeJWZaS3zXaKtRFalz8");
-  const provider = new providers.JsonRpcProvider(
-    "https://goerli.infura.io/v3/4416f70f7de745deb9076bf22ddc4f2a"
-  );
-  const signer = new Wallet(socketSignerKey, provider);
-  const { chainId } = await provider.getNetwork();
-  console.log("--provider id:", chainId);
-  console.log("singer balance:", await provider.getBalance(signer.address));
-
-  // await signer.sendTransaction({
-  //   to: "0x4858CbD0691081EcA4F0182B0c706BDcaa670439",
-  //   value: ethers.utils.parseEther("1"),
-  //   ...globalOveride
-  // })
+export const main = async () => {
+  const chainSlug = ChainSlug.SEPOLIA;
+  const signer = getSignerFromChainSlug(chainSlug);
 
   const aave = "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951";
   const proxyAdmin = signer.address;
   const vaultOwner = signer.address;
 
-  // let deployUtils: DeployParams = {
-  //   addresses: {} as TokenAddresses,
-  //   signer: signer,
-  //   currentChainSlug: chainSlug,
-  // };
-
   console.log("------start");
   const vaultImpl = await deployVaultImpl(signer);
-  console.log("------deployVaultImpl finish");
 
   const aaveStrategyImpl = await deployAAVEStrategyImpl(signer);
-  console.log("------deployAAVEStrategyImpl finish");
 
   //sepolia
   // const tokens = [
@@ -138,13 +100,13 @@ export const main1 = async () => {
 const deployVaultImpl = async (signer: Wallet) => {
   const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
   const ParallelVaultImpl = await ParallelVaultFactory.connect(signer).deploy({
-    ...globalOveride,
+    ...overrides[await signer.getChainId()],
   });
   console.log(
     "ParallelVaultImpl.deployTransaction.hash:",
     ParallelVaultImpl.deployTransaction.hash
   );
-  await ParallelVaultImpl.deployTransaction.wait(2);
+  await ParallelVaultImpl.deployTransaction.wait(1);
 
   console.log("ParallelVaultImpl deployed to:", ParallelVaultImpl.address);
 
@@ -170,10 +132,10 @@ const deployVault = async (
     proxyAdmin,
     initData,
     {
-      ...globalOveride,
+      ...overrides[await signer.getChainId()],
     }
   );
-  await ParallelProxy.deployTransaction.wait(2);
+  await ParallelProxy.deployTransaction.wait(1);
 
   console.log("ParallelProxy deployed to:", ParallelProxy.address);
   console.log("impl:", impl);
@@ -186,9 +148,9 @@ const deployVault = async (
 const deployAAVEStrategyImpl = async (signer: Wallet) => {
   const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
   const AaveStrategyImpl = await AaveStrategyFactory.connect(signer).deploy({
-    ...globalOveride,
+    ...overrides[await signer.getChainId()],
   });
-  await AaveStrategyImpl.deployTransaction.wait(2);
+  await AaveStrategyImpl.deployTransaction.wait(1);
 
   console.log("AaveStrategyImpl deployed to:", AaveStrategyImpl.address);
 
@@ -214,10 +176,10 @@ const deployAAVEStrategy = async (
     proxyAdmin,
     initData,
     {
-      ...globalOveride,
+      ...overrides[await signer.getChainId()],
     }
   );
-  await ParallelProxy.deployTransaction.wait(2);
+  await ParallelProxy.deployTransaction.wait(1);
 
   console.log("AAVEStrategy Proxy deployed to:", ParallelProxy.address);
   console.log("impl:", impl);

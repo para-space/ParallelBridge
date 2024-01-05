@@ -16,20 +16,22 @@ export const type = 2;
 
 export const overrides: {
   [chain in ChainSlug]?: {
-    type?: number | undefined;
+    type: number | undefined;
     gasLimit: BigNumberish | undefined;
-    gasPrice: BigNumberish | undefined;
+    gasPrice?: BigNumberish;
+    maxFeePerGas?: BigNumberish;
+    maxPriorityFeePerGas?: BigNumberish;
   };
 } = {
   [ChainSlug.ARBITRUM_SEPOLIA]: {
     type,
     gasLimit: 20_000_000,
-    gasPrice,
   },
   [ChainSlug.SEPOLIA]: {
-    type: 1,
+    type: 2,
     gasLimit,
-    gasPrice: 10_000_000_000,
+    maxFeePerGas: 30_000_000_000,
+    maxPriorityFeePerGas: 1_000_000_000,
   },
   [ChainSlug.ARBITRUM]: {
     type,
@@ -37,9 +39,10 @@ export const overrides: {
     gasPrice,
   },
   [ChainSlug.MAINNET]: {
-    type: 1,
-    gasLimit: 400_000,
-    gasPrice: 25_000_000_000,
+    type: 2,
+    gasLimit,
+    maxFeePerGas: 30_000_000_000,
+    maxPriorityFeePerGas: 1_000_000_000,
   },
   [ChainSlug.MODE_TESTNET]: {
     type: 1,
