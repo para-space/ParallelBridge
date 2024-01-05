@@ -1,14 +1,19 @@
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 
-import { Contract, Wallet, utils } from "ethers";
-import { getSignerFromChainSlug } from "../helpers/networks";
+import { Contract, Wallet, utils, providers } from "ethers";
+import {
+  getProviderFromChainSlug,
+  getSignerFromChainSlug,
+  overrides,
+} from "../helpers/networks";
 import { ChainSlug, getAddresses } from "@socket.tech/dl-core";
 import {
   integrationTypes,
   isAppChain,
   mode,
   projectConstants,
+  socketSignerKey,
   token,
   tokenDecimals,
   tokenName,
@@ -19,244 +24,205 @@ import {
   createObj,
   getProjectAddresses,
   getOrDeploy,
-  storeAddresses, deployContractWithArgs,
+  storeAddresses,
+  deployContractWithArgs,
 } from "../helpers/utils";
 import {
   AppChainAddresses,
   SuperBridgeContracts,
   NonAppChainAddresses,
   ProjectAddresses,
-  TokenAddresses, ParallelContracts,
+  TokenAddresses,
+  eContractid,
 } from "../../src";
+import { ethers } from "hardhat";
+import { ParallelVault } from "../../typechain-types";
 
 export interface ReturnObj {
   allDeployed: boolean;
   deployedAddresses: TokenAddresses;
 }
 
+const globalOveride = {
+  gasLimit: "5000000",
+  type: 2,
+  maxFeePerGas: "30000000000", //30G
+  maxPriorityFeePerGas: "1000000000", //1G
+};
+export const main = async () => {
+  const provider = new providers.JsonRpcProvider(
+    "https://goerli.infura.io/v3/4416f70f7de745deb9076bf22ddc4f2a"
+  );
+  const signer = new Wallet(socketSignerKey, provider);
+
+  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
+  const Vault = ParallelVaultFactory.attach(
+    "0x73d9148D58E4C8be4614A031cB2A2F9976F60D2b"
+  );
+  await Vault.connect(signer).deposit(
+    "1000000",
+    "0x018281853eCC543Aa251732e8FDaa7323247eBeB"
+  );
+};
+
 /**
  * Deploys contracts for all networks
  */
-export const main = async () => {
+export const main1 = async () => {
+  // const chainSlug = ChainSlug.SEPOLIA;
+  // const signer = getSignerFromChainSlug(chainSlug);
 
-  deployContractWithArgs()
-  // try {
-  //   let addresses: ProjectAddresses;
-  //   try {
-  //     addresses = await getProjectAddresses();
-  //   } catch (error) {
-  //     addresses = {} as ProjectAddresses;
-  //   }
-  //
-  //   await Promise.all(
-  //     [projectConstants.appChain, ...projectConstants.nonAppChains].map(
-  //       async (chain: ChainSlug) => {
-  //         let allDeployed = false;
-  //         const signer = getSignerFromChainSlug(chain);
-  //
-  //         let chainAddresses: TokenAddresses = addresses[chain]?.[token]
-  //           ? (addresses[chain]?.[token] as TokenAddresses)
-  //           : ({} as TokenAddresses);
-  //
-  //         const siblings = isAppChain(chain)
-  //           ? projectConstants.nonAppChains
-  //           : [projectConstants.appChain];
-  //
-  //         while (!allDeployed) {
-  //           const results: ReturnObj = await deploy(
-  //             isAppChain(chain),
-  //             signer,
-  //             chain,
-  //             siblings,
-  //             chainAddresses
-  //           );
-  //
-  //           allDeployed = results.allDeployed;
-  //           chainAddresses = results.deployedAddresses;
-  //         }
-  //       }
-  //     )
-  //   );
-  // } catch (error) {
-  //   console.log("Error in deploying contracts", error);
-  // }
+  //const provider = new providers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/i2FuPUl5I0z6aCeJWZaS3zXaKtRFalz8");
+  const provider = new providers.JsonRpcProvider(
+    "https://goerli.infura.io/v3/4416f70f7de745deb9076bf22ddc4f2a"
+  );
+  const signer = new Wallet(socketSignerKey, provider);
+  const { chainId } = await provider.getNetwork();
+  console.log("--provider id:", chainId);
+  console.log("singer balance:", await provider.getBalance(signer.address));
+
+  // await signer.sendTransaction({
+  //   to: "0x4858CbD0691081EcA4F0182B0c706BDcaa670439",
+  //   value: ethers.utils.parseEther("1"),
+  //   ...globalOveride
+  // })
+
+  const aave = "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951";
+  const proxyAdmin = signer.address;
+  const vaultOwner = signer.address;
+
+  // let deployUtils: DeployParams = {
+  //   addresses: {} as TokenAddresses,
+  //   signer: signer,
+  //   currentChainSlug: chainSlug,
+  // };
+
+  console.log("------start");
+  const vaultImpl = await deployVaultImpl(signer);
+  console.log("------deployVaultImpl finish");
+
+  const aaveStrategyImpl = await deployAAVEStrategyImpl(signer);
+  console.log("------deployAAVEStrategyImpl finish");
+
+  //sepolia
+  // const tokens = [
+  //     "0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357",//dai
+  //     "0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5",//link
+  //     "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",//usdc
+  //     "0x29f2D40B0605204364af54EC677bD022dA425d03",//wbtc
+  //     "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c",//weth
+  //     "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0",//usdt
+  //     "0x88541670E55cC00bEEFD87eB59EDd1b7C511AC9a",//AAVE
+  // ];
+  //goerli
+  const tokens = [
+    "0xa59f61b73bF92D9A9B11c73aD1b913E1e79A1fCD", //usdt
+    "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6", //weth
+  ];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const vault = await deployVault(
+      signer,
+      vaultImpl,
+      tokens[i],
+      vaultOwner,
+      proxyAdmin
+    );
+
+    // await deployAAVEStrategy(signer, aaveStrategyImpl, aave, vault.address, proxyAdmin);
+    //
+    // await vault.connect(signer).setDebtRatio(10000);
+  }
 };
 
-const deployVaultImpl = async (
-    signer: Wallet,
-    deployParams: DeployParams
-): Promise<DeployParams> => {
-  const vaultImpl: Contract = await getOrDeploy(
-      ParallelContracts.ParallelVault,
-      "contracts/superbridge/ParallelVault.sol",
-      [],
-      deployParams
-      );
+const deployVaultImpl = async (signer: Wallet) => {
+  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
+  const ParallelVaultImpl = await ParallelVaultFactory.connect(signer).deploy({
+    ...globalOveride,
+  });
+  console.log(
+    "ParallelVaultImpl.deployTransaction.hash:",
+    ParallelVaultImpl.deployTransaction.hash
+  );
+  await ParallelVaultImpl.deployTransaction.wait(2);
 
-  deployParams.addresses = createObj(
-      deployParams.addresses,
-      ["ParallelVault"],
-      vaultImpl.address
+  console.log("ParallelVaultImpl deployed to:", ParallelVaultImpl.address);
+
+  return ParallelVaultImpl.address;
+};
+
+const deployVault = async (
+  signer: Wallet,
+  impl: string,
+  token: string,
+  vaultOwner: string,
+  proxyAdmin: string
+) => {
+  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
+  const initData = ParallelVaultFactory.interface.encodeFunctionData(
+    "initialize",
+    [token, vaultOwner]
   );
 
-  return deployParams;
-}
-
-/**
- * Deploys network-independent contracts
- */
-const deploy = async (
-  isAppChain: boolean,
-  socketSigner: Wallet,
-  chainSlug: number,
-  siblings: number[],
-  deployedAddresses: TokenAddresses
-): Promise<ReturnObj> => {
-  let allDeployed = false;
-
-  let deployUtils: DeployParams = {
-    addresses: deployedAddresses,
-    signer: socketSigner,
-    currentChainSlug: chainSlug,
-  };
-
-  try {
-    deployUtils.addresses.isAppChain = isAppChain;
-    if (isAppChain) {
-      deployUtils = await deployAppChainContracts(deployUtils);
-    } else {
-      deployUtils = await deployNonAppChainContracts(deployUtils);
+  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
+  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
+    impl,
+    proxyAdmin,
+    initData,
+    {
+      ...globalOveride,
     }
+  );
+  await ParallelProxy.deployTransaction.wait(2);
 
-    for (let sibling of siblings) {
-      deployUtils = await deployConnectors(sibling, deployUtils);
-    }
-    allDeployed = true;
-    console.log(deployUtils.addresses);
-    console.log("Contracts deployed!");
-  } catch (error) {
-    console.log(
-      `Error in deploying setup contracts for ${deployUtils.currentChainSlug}`,
-      error
-    );
-  }
+  console.log("ParallelProxy deployed to:", ParallelProxy.address);
+  console.log("impl:", impl);
+  console.log("proxyAdmin:", proxyAdmin);
+  console.log("initData:", initData);
 
-  await storeAddresses(deployUtils.addresses, deployUtils.currentChainSlug);
-  return {
-    allDeployed,
-    deployedAddresses: deployUtils.addresses,
-  };
+  return ParallelVaultFactory.attach(ParallelProxy.address) as ParallelVault;
 };
 
-const deployConnectors = async (
-  sibling: ChainSlug,
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    if (!deployParams.addresses) throw new Error("Addresses not found!");
+const deployAAVEStrategyImpl = async (signer: Wallet) => {
+  const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
+  const AaveStrategyImpl = await AaveStrategyFactory.connect(signer).deploy({
+    ...globalOveride,
+  });
+  await AaveStrategyImpl.deployTransaction.wait(2);
 
-    const socket: string = getAddresses(
-      deployParams.currentChainSlug,
-      mode
-    ).Socket;
-    let hub: string;
-    const addr: TokenAddresses = deployParams.addresses;
-    if (addr.isAppChain) {
-      const a = addr as AppChainAddresses;
-      if (!a.Controller) throw new Error("Controller not found!");
-      hub = a.Controller;
-    } else {
-      const a = addr as NonAppChainAddresses;
-      if (!a.Vault) throw new Error("Vault not found!");
-      hub = a.Vault;
-    }
+  console.log("AaveStrategyImpl deployed to:", AaveStrategyImpl.address);
 
-    for (let intType of integrationTypes) {
-      console.log(hub, socket, sibling);
-      const connector: Contract = await getOrDeploy(
-        SuperBridgeContracts.ConnectorPlug,
-        "contracts/superbridge/ConnectorPlug.sol",
-        [hub, socket, sibling],
-        deployParams
-      );
-
-      console.log("connectors", sibling.toString(), intType, connector.address);
-
-      deployParams.addresses = createObj(
-        deployParams.addresses,
-        ["connectors", sibling.toString(), intType],
-        connector.address
-      );
-    }
-
-    console.log(deployParams.addresses);
-    console.log("Connector Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying connector contracts", error);
-  }
-
-  return deployParams;
+  return AaveStrategyImpl.address;
 };
 
-const deployAppChainContracts = async (
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    const exchangeRate: Contract = await getOrDeploy(
-      SuperBridgeContracts.ExchangeRate,
-      "contracts/superbridge/ExchangeRate.sol",
-      [],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.ExchangeRate] =
-      exchangeRate.address;
+const deployAAVEStrategy = async (
+  signer: Wallet,
+  impl: string,
+  aave: string,
+  vault: string,
+  proxyAdmin: string
+) => {
+  const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
+  const initData = AaveStrategyFactory.interface.encodeFunctionData(
+    "initialize",
+    [aave, vault]
+  );
 
-    if (!deployParams.addresses[SuperBridgeContracts.MintableToken])
-      throw new Error("Token not found on app chain");
+  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
+  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
+    impl,
+    proxyAdmin,
+    initData,
+    {
+      ...globalOveride,
+    }
+  );
+  await ParallelProxy.deployTransaction.wait(2);
 
-    const controller: Contract = await getOrDeploy(
-      projectConstants.isFiatTokenV2_1
-        ? SuperBridgeContracts.FiatTokenV2_1_Controller
-        : SuperBridgeContracts.Controller,
-      projectConstants.isFiatTokenV2_1
-        ? "contracts/superbridge/FiatTokenV2_1/FiatTokenV2_1_Controller.sol"
-        : "contracts/superbridge/Controller.sol",
-      [
-        deployParams.addresses[SuperBridgeContracts.MintableToken],
-        exchangeRate.address,
-      ],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.Controller] =
-      controller.address;
-    console.log(deployParams.addresses);
-    console.log("Chain Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying chain contracts", error);
-  }
-  return deployParams;
-};
-
-const deployNonAppChainContracts = async (
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    if (!deployParams.addresses[SuperBridgeContracts.NonMintableToken])
-      throw new Error("Token not found on chain");
-
-    const vault: Contract = await getOrDeploy(
-      SuperBridgeContracts.Vault,
-      "contracts/superbridge/Vault.sol",
-      [deployParams.addresses[SuperBridgeContracts.NonMintableToken]],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.Vault] = vault.address;
-    console.log(deployParams.addresses);
-    console.log("Chain Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying chain contracts", error);
-  }
-  return deployParams;
+  console.log("AAVEStrategy Proxy deployed to:", ParallelProxy.address);
+  console.log("impl:", impl);
+  console.log("proxyAdmin:", proxyAdmin);
+  console.log("initData:", initData);
 };
 
 main()
