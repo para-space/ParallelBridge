@@ -70,7 +70,7 @@ export type ProjectConstants = {
 };
 
 const _projectConstants: ProjectConstants = {
-  [Project.MODE_TESTNET]: {
+  [Project.Parallel]: {
     [DeploymentMode.DEV]: {
       [Tokens.USDC]: {
         appChain: ChainSlug.MODE_TESTNET,

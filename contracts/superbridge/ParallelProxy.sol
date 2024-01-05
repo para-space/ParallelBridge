@@ -4,14 +4,15 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
-contract VaultProxy is
+contract ParallelProxy is
     TransparentUpgradeableProxy,
     ITransparentUpgradeableProxy
 {
     constructor(
         address implementation,
-        address admin_
-    ) TransparentUpgradeableProxy(implementation, admin_, "") {}
+        address admin_,
+        bytes memory _data
+    ) TransparentUpgradeableProxy(implementation, admin_, _data) {}
 
     error OnlyProxyAdmin();
 

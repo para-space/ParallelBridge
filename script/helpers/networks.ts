@@ -1,13 +1,14 @@
 import { config as dotenvConfig } from "dotenv";
 import { BigNumberish, Wallet, ethers } from "ethers";
 import { resolve } from "path";
-import { ChainSlug, ChainSlugToKey } from "@socket.tech/dl-core";
 import { socketSignerKey } from "./constants";
+import {
+  ChainSlug
+} from "../../src";
 
 const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
 dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
 
-export const chainSlugKeys: string[] = Object.values(ChainSlugToKey);
 
 export const gasLimit = undefined;
 export const gasPrice = undefined;
