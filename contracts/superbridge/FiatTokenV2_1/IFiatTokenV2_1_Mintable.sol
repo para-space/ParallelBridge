@@ -1,6 +1,7 @@
-pragma solidity 0.8.19;
+// SPDX-License-Identifier: GPL-3.0-only
+pragma solidity 0.8.20;
 
-import "solmate/tokens/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // USDC's standard token
 abstract contract IFiatTokenV2_1_Mintable is ERC20 {

@@ -1,72 +1,60 @@
-import { ChainSlug, IntegrationTypes } from "./core";
+export type tEthereumAddress = string;
+
+export enum eEthereumNetwork {
+  hardhat = "hardhat",
+  mainnet = "mainnet",
+  sepolia = "sepolia",
+  arbitrum = "arbitrum",
+  arbitrumSepolia = "arbitrumSepolia",
+}
+
+export enum eContractid {
+  MintableToken = "MintableToken",
+  NonMintableToken = "NonMintableToken",
+  AaveStrategyImpl = "AaveStrategyImpl",
+  VaultImpl = "VaultImpl",
+  ParallelProxy = "ParallelProxy",
+}
 
 export enum Tokens {
-  Moon = "MOON",
   USDC = "USDC",
   WETH = "WETH",
+  USDT = "USDT",
+  DAI = "DAI",
+  WBTC = "WBTC",
+  wstETH = "wstETH",
+  rETH = "rETH",
+  cbETH = "cbETH",
+  AAVE = "AAVE",
+  LINK = "LINK",
 }
 
-export enum Project {
-  AEVO = "aevo",
-  AEVO_TESTNET = "aevo-testnet",
-  LYRA_TESTNET = "lyra-testnet",
-  LYRA = "lyra",
-  SX_NETWORK_TESTNET = "sx-network-testnet",
-  SOCKET_DEV = "socket-dev",
-  MODE_TESTNET = "mode-testnet",
-  VICTION_TESTNET = "viction-testnet",
+export enum Strategy {
+  AAVE = "AAVE",
+  wETHAAVE = "wETHAAVE",
 }
 
+export interface ITokenConfig {
+  address: tEthereumAddress,
+  strategy: Strategy,
+  strategyPool?: tEthereumAddress;
+  strategyOwner?: tEthereumAddress;
+}
+
+export interface IConfiguration {
+  upgradeAdmin: tEthereumAddress;
+  vaultOwner: tEthereumAddress;
+  Tokens: Partial<Record<Tokens, ITokenConfig>>;
+}
 export enum SuperBridgeContracts {
   MintableToken = "MintableToken",
   NonMintableToken = "NonMintableToken",
-  Vault = "Vault",
+  ParallelVault = "ParallelVault",
+  AaveStrategy = "AaveStrategy",
+  VaultProxy = "VaultProxy",
+  VaultImpl = "VaultImpl",
   Controller = "Controller",
   FiatTokenV2_1_Controller = "FiatTokenV2_1_Controller",
   ExchangeRate = "ExchangeRate",
   ConnectorPlug = "ConnectorPlug",
 }
-
-export type ProjectAddresses = {
-  [chainSlug in ChainSlug]?: ChainAddresses;
-};
-
-export type ChainAddresses = {
-  [token in Tokens]?: TokenAddresses;
-};
-
-export type TokenAddresses = AppChainAddresses | NonAppChainAddresses;
-
-export interface AppChainAddresses {
-  isAppChain: true;
-  [SuperBridgeContracts.MintableToken]?: string;
-  [SuperBridgeContracts.Controller]?: string;
-  [SuperBridgeContracts.ExchangeRate]?: string;
-  connectors?: Connectors;
-}
-
-export interface NonAppChainAddresses {
-  isAppChain: false;
-  [SuperBridgeContracts.NonMintableToken]?: string;
-  [SuperBridgeContracts.Vault]?: string;
-  connectors?: Connectors;
-}
-
-export type Connectors = {
-  [chainSlug in ChainSlug]?: ConnectorAddresses;
-};
-
-export type ConnectorAddresses = {
-  [integration in IntegrationTypes]?: string;
-};
-
-export const ChainSlugToProject: { [chainSlug in ChainSlug]?: Project } = {
-  [ChainSlug.AEVO]: Project.AEVO,
-  [ChainSlug.AEVO_TESTNET]: Project.AEVO_TESTNET,
-  [ChainSlug.LYRA_TESTNET]: Project.LYRA_TESTNET,
-  [ChainSlug.LYRA]: Project.LYRA,
-  [ChainSlug.SX_NETWORK_TESTNET]: Project.SX_NETWORK_TESTNET,
-  [ChainSlug.OPTIMISM_SEPOLIA]: Project.SOCKET_DEV,
-  [ChainSlug.MODE_TESTNET]: Project.MODE_TESTNET,
-  [ChainSlug.VICTION_TESTNET]: Project.VICTION_TESTNET,
-};
