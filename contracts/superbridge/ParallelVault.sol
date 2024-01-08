@@ -89,6 +89,10 @@ contract ParallelVault is
         __Ownable_init(_owner);
         __ReentrancyGuard_init();
         __ERC4626_init(IERC20(token_));
+
+         debtRatio = MAX_BPS;
+        //4 hours
+        rebalanceingDelay = 14400;
     }
 
     function setDebtRatio(uint256 debtRatio_) external onlyOwner {

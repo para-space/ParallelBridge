@@ -15,12 +15,17 @@ import type {
 import { resolve } from "path";
 import fs from "fs";
 
+import {eEthereumNetwork} from "./src";
 import {
-  ChainSlugToId,
-  HardhatChainName,
-  hardhatChainNameToSlug,
-} from "@socket.tech/dl-core";
-import { getJsonRpcUrl } from "./script/helpers/networks";
+  ARBITRUM_ETHERSCAN_KEY,
+  ARBITRUM_GOERLI_ETHERSCAN_KEY,
+  BROWSER_URLS,
+  CHAIN_ID,
+  ETHERSCAN_APIS,
+  ETHERSCAN_KEY,
+  GOERLI_ETHERSCAN_KEY,
+  NETWORKS_RPC_URL
+} from "./hardhat-constants";
 
 const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
 dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
@@ -30,11 +35,11 @@ if (!process.env.SOCKET_SIGNER_KEY) throw new Error("No private key found");
 const privateKey: HardhatNetworkAccountUserConfig = process.env
   .SOCKET_SIGNER_KEY as unknown as HardhatNetworkAccountUserConfig;
 
-function getChainConfig(chain: HardhatChainName): NetworkUserConfig {
+function getChainConfig(network: eEthereumNetwork): NetworkUserConfig {
   return {
     accounts: [`0x${privateKey}`],
-    chainId: ChainSlugToId[hardhatChainNameToSlug[chain]],
-    url: getJsonRpcUrl(hardhatChainNameToSlug[chain]),
+    chainId: CHAIN_ID[network],
+    url: NETWORKS_RPC_URL[network],
   };
 }
 
@@ -46,9 +51,6 @@ function getRemappings() {
     .map((line) => line.trim().split("="));
 }
 
-let liveNetworks = {};
-liveNetworks = {};
-
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   abiExporter: {
@@ -57,68 +59,36 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      arbitrumOne: process.env.ARBISCAN_API_KEY || "",
-      arbitrumTestnet: process.env.ARBISCAN_API_KEY || "",
-      arbitrumSepolia: process.env.ARBISCAN_API_KEY || "",
-      bsc: process.env.BSCSCAN_API_KEY || "",
-      bscTestnet: process.env.BSCSCAN_API_KEY || "",
-      goerli: process.env.ETHERSCAN_API_KEY || "",
-      mainnet: process.env.ETHERSCAN_API_KEY || "",
-      sepolia: process.env.ETHERSCAN_API_KEY || "",
-      optimisticEthereum: process.env.OPTIMISM_API_KEY || "",
-      optimisticTestnet: process.env.OPTIMISM_API_KEY || "",
-      optimisticSepolia: process.env.OPTIMISM_API_KEY || "",
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonMumbai: process.env.POLYGONSCAN_API_KEY || "",
+        localhost: ETHERSCAN_KEY,
+        mainnet: ETHERSCAN_KEY,
+        goerli: GOERLI_ETHERSCAN_KEY,
+        arbitrum: ARBITRUM_ETHERSCAN_KEY,
+        arbitrumGoerli: ARBITRUM_GOERLI_ETHERSCAN_KEY,
     },
     customChains: [
-      {
-        network: "optimisticTestnet",
-        chainId: hardhatChainNameToSlug[HardhatChainName.OPTIMISM_GOERLI],
-        urls: {
-          apiURL: "https://api-goerli-optimistic.etherscan.io/api",
-          browserURL: "https://goerli-optimism.etherscan.io/",
-        },
+      eEthereumNetwork.mainnet,
+      eEthereumNetwork.sepolia,
+      eEthereumNetwork.arbitrum,
+      eEthereumNetwork.arbitrumSepolia,
+    ].map((network) => ({
+      network,
+      chainId: CHAIN_ID[network]!,
+      urls: {
+        apiURL: ETHERSCAN_APIS[network],
+        browserURL: BROWSER_URLS[network],
       },
-      {
-        network: "optimisticSepolia",
-        chainId: hardhatChainNameToSlug[HardhatChainName.OPTIMISM_SEPOLIA],
-        urls: {
-          apiURL: "https://api-sepolia-optimistic.etherscan.io/api",
-          browserURL: "https://sepolia-optimism.etherscan.io/",
-        },
-      },
-      {
-        network: "arbitrumTestnet",
-        chainId: hardhatChainNameToSlug[HardhatChainName.ARBITRUM_GOERLI],
-        urls: {
-          apiURL: "https://api-goerli.arbiscan.io/api",
-          browserURL: "https://goerli.arbiscan.io/",
-        },
-      },
-      {
-        network: "arbitrumSepolia",
-        chainId: hardhatChainNameToSlug[HardhatChainName.ARBITRUM_SEPOLIA],
-        urls: {
-          apiURL: "https://api-sepolia.arbiscan.io/api",
-          browserURL: "https://sepolia.arbiscan.io/",
-        },
-      },
-    ],
+    })),
   },
   networks: {
-    hardhat: {
-      chainId: hardhatChainNameToSlug.hardhat,
+    [eEthereumNetwork.hardhat]: {
+      chainId: CHAIN_ID[eEthereumNetwork.hardhat],
     },
-    [HardhatChainName.ARBITRUM_SEPOLIA]: getChainConfig(
-      HardhatChainName.ARBITRUM_SEPOLIA
+    [eEthereumNetwork.mainnet]: getChainConfig(eEthereumNetwork.mainnet),
+    [eEthereumNetwork.sepolia]: getChainConfig(eEthereumNetwork.sepolia),
+    [eEthereumNetwork.arbitrum]: getChainConfig(eEthereumNetwork.arbitrum),
+    [eEthereumNetwork.arbitrumSepolia]: getChainConfig(
+        eEthereumNetwork.arbitrumSepolia
     ),
-    [HardhatChainName.ARBITRUM]: getChainConfig(HardhatChainName.ARBITRUM),
-    [HardhatChainName.MAINNET]: getChainConfig(HardhatChainName.MAINNET),
-    [HardhatChainName.SEPOLIA]: getChainConfig(HardhatChainName.SEPOLIA),
-    // [HardhatChainName.MODE_TESTNET]: getChainConfig(
-    //   HardhatChainName.MODE_TESTNET
-    // ),
   },
   paths: {
     sources: "./contracts",
