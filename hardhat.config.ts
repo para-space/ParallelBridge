@@ -15,7 +15,7 @@ import type {
 import { resolve } from "path";
 import fs from "fs";
 
-import {eEthereumNetwork} from "./src";
+import { eEthereumNetwork } from "./src";
 import {
   ARBITRUM_ETHERSCAN_KEY,
   ARBITRUM_GOERLI_ETHERSCAN_KEY,
@@ -24,7 +24,7 @@ import {
   ETHERSCAN_APIS,
   ETHERSCAN_KEY,
   GOERLI_ETHERSCAN_KEY,
-  NETWORKS_RPC_URL
+  NETWORKS_RPC_URL,
 } from "./hardhat-constants";
 
 const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
@@ -59,11 +59,11 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-        localhost: ETHERSCAN_KEY,
-        mainnet: ETHERSCAN_KEY,
-        goerli: GOERLI_ETHERSCAN_KEY,
-        arbitrum: ARBITRUM_ETHERSCAN_KEY,
-        arbitrumGoerli: ARBITRUM_GOERLI_ETHERSCAN_KEY,
+      localhost: ETHERSCAN_KEY,
+      mainnet: ETHERSCAN_KEY,
+      goerli: GOERLI_ETHERSCAN_KEY,
+      arbitrum: ARBITRUM_ETHERSCAN_KEY,
+      arbitrumGoerli: ARBITRUM_GOERLI_ETHERSCAN_KEY,
     },
     customChains: [
       eEthereumNetwork.mainnet,
@@ -87,7 +87,7 @@ const config: HardhatUserConfig = {
     [eEthereumNetwork.sepolia]: getChainConfig(eEthereumNetwork.sepolia),
     [eEthereumNetwork.arbitrum]: getChainConfig(eEthereumNetwork.arbitrum),
     [eEthereumNetwork.arbitrumSepolia]: getChainConfig(
-        eEthereumNetwork.arbitrumSepolia
+      eEthereumNetwork.arbitrumSepolia
     ),
   },
   paths: {

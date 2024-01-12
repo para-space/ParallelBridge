@@ -31,12 +31,12 @@ export enum Tokens {
 
 export enum Strategy {
   AAVE = "AAVE",
-  wETHAAVE = "wETHAAVE",
+  ETHAAVE = "ETHAAVE",
 }
 
 export interface ITokenConfig {
-  address: tEthereumAddress,
-  strategy: Strategy,
+  address: tEthereumAddress;
+  strategy: Strategy;
   strategyPool?: tEthereumAddress;
   strategyOwner?: tEthereumAddress;
 }
@@ -44,6 +44,7 @@ export interface ITokenConfig {
 export interface IConfiguration {
   upgradeAdmin: tEthereumAddress;
   vaultOwner: tEthereumAddress;
+  wstETH?: tEthereumAddress;
   Tokens: Partial<Record<Tokens, ITokenConfig>>;
 }
 export enum SuperBridgeContracts {

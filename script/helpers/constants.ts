@@ -1,7 +1,7 @@
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 
-import {eEthereumNetwork, IConfiguration, Strategy, Tokens} from "../../src";
+import { eEthereumNetwork, IConfiguration, Strategy, Tokens } from "../../src";
 
 if (!process.env.SOCKET_OWNER_ADDRESS)
   throw Error("Socket owner address not present");
@@ -15,6 +15,7 @@ console.log("========================================================");
 console.log(`Owner address configured to ${socketOwner}`);
 console.log("========================================================");
 
+export const ZEROADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const SepoliaConfig: IConfiguration = {
   upgradeAdmin: "0x018281853eCC543Aa251732e8FDaa7323247eBeB",
@@ -56,7 +57,7 @@ export const SepoliaConfig: IConfiguration = {
       strategyPool: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
     },
   },
-}
+};
 
 export const EAConfigs: Partial<Record<eEthereumNetwork, IConfiguration>> = {
   //[eEthereumNetwork.hardhat]: HardhatConfig,
@@ -64,4 +65,3 @@ export const EAConfigs: Partial<Record<eEthereumNetwork, IConfiguration>> = {
   [eEthereumNetwork.sepolia]: SepoliaConfig,
   //[eEthereumNetwork.arbitrum]: ArbitrumConfig,
 };
-

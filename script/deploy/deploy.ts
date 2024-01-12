@@ -2,99 +2,92 @@ import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 
 import { Wallet } from "ethers";
-import {
-  overrides,
-} from "../helpers/networks";
-import {
-getMarketConfig, getSinger,
-} from "../helpers/utils";
-import {
-Strategy,
-} from "../../src";
+import { overrides } from "../helpers/networks";
+import { getMarketConfig, getSinger } from "../helpers/utils";
+import { Strategy, tEthereumAddress } from "../../src";
 import { ethers } from "hardhat";
-import { ParallelVault } from "../../typechain-types";
+import { ERC20, ParallelVault } from "../../typechain-types";
+import { ZEROADDRESS } from "../helpers/constants";
 
 /**
  * Deploys contracts for all networks
  */
 export const main = async () => {
-
   const marketConfig = getMarketConfig();
   const signer = getSinger();
 
-  const vaultImpl = await deployVaultImpl(signer);
+  const factory = await deployFactory(signer);
 
   const aaveStrategyImpl = await deployAAVEStrategyImpl(signer);
 
+  //deploy xToken and vault
   for (const key in marketConfig.Tokens) {
     if (Object.prototype.hasOwnProperty.call(marketConfig.Tokens, key)) {
       const tokenConfig = marketConfig.Tokens[key];
 
-      const vault = await deployVault(
-          signer,
-          vaultImpl,
+      const token = await getERC20(tokenConfig.address);
+      const tokenSymbol = await token.symbol();
+      const tokenName = await token.name();
+      //issue is here
+      const xToken = await factory
+        .connect(signer)
+        .deployXERC20(`x${tokenName}`, `x${tokenSymbol}`, factory.address);
+      const vault = await factory
+        .connect(signer)
+        .deployLockbox(
+          xToken.address,
           tokenConfig.address,
-          marketConfig.vaultOwner,
-          marketConfig.upgradeAdmin
-      );
+          tokenConfig.address === ZEROADDRESS
+        );
 
+      let strategy;
       switch (tokenConfig.strategy) {
         case Strategy.AAVE:
-          await deployAAVEStrategy(signer, aaveStrategyImpl, tokenConfig.strategyPool, vault.address, marketConfig.upgradeAdmin);
+          strategy = await deployAAVEStrategy(
+            signer,
+            aaveStrategyImpl,
+            tokenConfig.strategyPool,
+            vault.address,
+            marketConfig.upgradeAdmin
+          );
+          break;
+        case Strategy.ETHAAVE:
+          strategy = await deployETHAAVEStrategy(
+            signer,
+            marketConfig.wstETH!,
+            tokenConfig.strategyPool,
+            vault.address,
+            marketConfig.upgradeAdmin
+          );
           break;
         default:
-          console.log("no strategy");
+          throw new Error("invalid strategy");
       }
+
+      await vault.connect(signer).setStrategy(strategy);
     }
   }
 };
 
-const deployVaultImpl = async (signer: Wallet) => {
-  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
-  const ParallelVaultImpl = await ParallelVaultFactory.connect(signer).deploy({
+const getERC20 = async (address: tEthereumAddress) => {
+  const ERC20Factory = await ethers.getContractFactory("ERC20");
+  return ERC20Factory.attach(address) as ERC20;
+};
+
+const deployFactory = async (signer: Wallet) => {
+  const XERC20FactoryFactory = await ethers.getContractFactory("XERC20Factory");
+  const XERC20Factory = await XERC20FactoryFactory.connect(signer).deploy({
     ...overrides[await signer.getChainId()],
   });
   console.log(
-    "ParallelVaultImpl.deployTransaction.hash:",
-    ParallelVaultImpl.deployTransaction.hash
+    "XERC20Factory.deployTransaction.hash:",
+    XERC20Factory.deployTransaction.hash
   );
-  await ParallelVaultImpl.deployTransaction.wait(1);
+  await XERC20Factory.deployTransaction.wait(1);
 
-  console.log("ParallelVaultImpl deployed to:", ParallelVaultImpl.address);
+  console.log("XERC20Factory deployed to:", XERC20Factory.address);
 
-  return ParallelVaultImpl.address;
-};
-
-const deployVault = async (
-  signer: Wallet,
-  impl: string,
-  token: string,
-  vaultOwner: string,
-  proxyAdmin: string
-) => {
-  const ParallelVaultFactory = await ethers.getContractFactory("ParallelVault");
-  const initData = ParallelVaultFactory.interface.encodeFunctionData(
-    "initialize",
-    [token, vaultOwner]
-  );
-
-  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
-  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
-    impl,
-    proxyAdmin,
-    initData,
-    {
-      ...overrides[await signer.getChainId()],
-    }
-  );
-  await ParallelProxy.deployTransaction.wait(1);
-
-  console.log("ParallelProxy deployed to:", ParallelProxy.address);
-  console.log("impl:", impl);
-  console.log("proxyAdmin:", proxyAdmin);
-  console.log("initData:", initData);
-
-  return ParallelVaultFactory.attach(ParallelProxy.address) as ParallelVault;
+  return XERC20FactoryFactory.attach(XERC20Factory.address);
 };
 
 const deployAAVEStrategyImpl = async (signer: Wallet) => {
@@ -111,10 +104,10 @@ const deployAAVEStrategyImpl = async (signer: Wallet) => {
 
 const deployAAVEStrategy = async (
   signer: Wallet,
-  impl: string,
-  aave: string,
-  vault: string,
-  proxyAdmin: string
+  impl: tEthereumAddress,
+  aave: tEthereumAddress,
+  vault: tEthereumAddress,
+  proxyAdmin: tEthereumAddress
 ) => {
   const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
   const initData = AaveStrategyFactory.interface.encodeFunctionData(
@@ -137,6 +130,55 @@ const deployAAVEStrategy = async (
   console.log("impl:", impl);
   console.log("proxyAdmin:", proxyAdmin);
   console.log("initData:", initData);
+
+  return ParallelProxy.address;
+};
+
+const deployETHAAVEStrategy = async (
+  signer: Wallet,
+  wstETH: tEthereumAddress,
+  aave: tEthereumAddress,
+  vault: tEthereumAddress,
+  proxyAdmin: tEthereumAddress
+) => {
+  const ETHAaveStrategyFactory = await ethers.getContractFactory(
+    "ETHAaveStrategy"
+  );
+  const IMPL = await ETHAaveStrategyFactory.connect(signer).deploy(
+    wstETH,
+    aave,
+    vault,
+    {
+      ...overrides[await signer.getChainId()],
+    }
+  );
+  await IMPL.deployTransaction.wait(1);
+  console.log("ETHAAVEStrategy IMPL deployed to:", IMPL.address);
+  console.log("wstETH:", wstETH);
+  console.log("aave:", aave);
+  console.log("vault:", vault);
+
+  const initData = ETHAaveStrategyFactory.interface.encodeFunctionData(
+    "initialize",
+    []
+  );
+  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
+  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
+    IMPL.address,
+    proxyAdmin,
+    initData,
+    {
+      ...overrides[await signer.getChainId()],
+    }
+  );
+  await ParallelProxy.deployTransaction.wait(1);
+
+  console.log("ETHAAVEStrategy Proxy deployed to:", ParallelProxy.address);
+  console.log("impl:", IMPL.address);
+  console.log("proxyAdmin:", proxyAdmin);
+  console.log("initData:", initData);
+
+  return ParallelProxy.address;
 };
 
 main()

@@ -1,11 +1,10 @@
 import { config as dotenvConfig } from "dotenv";
-import { BigNumberish} from "ethers";
+import { BigNumberish } from "ethers";
 import { resolve } from "path";
-import {eEthereumNetwork} from "../../src";
+import { eEthereumNetwork } from "../../src";
 
 const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
 dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
-
 
 export const gasLimit = undefined;
 export const gasPrice = undefined;

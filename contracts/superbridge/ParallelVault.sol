@@ -90,7 +90,7 @@ contract ParallelVault is
         __ReentrancyGuard_init();
         __ERC4626_init(IERC20(token_));
 
-         debtRatio = MAX_BPS;
+        debtRatio = MAX_BPS;
         //4 hours
         rebalanceingDelay = 14400;
     }
