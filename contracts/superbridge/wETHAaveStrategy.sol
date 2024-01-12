@@ -60,7 +60,7 @@ contract wETHAaveStrategy is Initializable {
         //1. weth -> ETH
         IWETH(weth).withdraw(amount_);
         //2. ETH -> stETH
-        ILido(lido).submit{value: amount}(address(0));
+        ILido(lido).submit{value: amount_}(address(0));
         //3. stETH -> wstETH
         uint256 wstETHAmount = IwstETH(wstETH).wrap(amount_);
         //4. wstETH -> AAVE
