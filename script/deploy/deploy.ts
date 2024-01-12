@@ -1,240 +1,184 @@
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 
-import { Contract, Wallet, utils } from "ethers";
-import { getSignerFromChainSlug } from "../helpers/networks";
-import { ChainSlug, getAddresses } from "@socket.tech/dl-core";
-import {
-  integrationTypes,
-  isAppChain,
-  mode,
-  projectConstants,
-  token,
-  tokenDecimals,
-  tokenName,
-  tokenSymbol,
-} from "../helpers/constants";
-import {
-  DeployParams,
-  createObj,
-  getProjectAddresses,
-  getOrDeploy,
-  storeAddresses,
-} from "../helpers/utils";
-import {
-  AppChainAddresses,
-  SuperBridgeContracts,
-  NonAppChainAddresses,
-  ProjectAddresses,
-  TokenAddresses,
-} from "../../src";
-
-export interface ReturnObj {
-  allDeployed: boolean;
-  deployedAddresses: TokenAddresses;
-}
+import { Wallet } from "ethers";
+import { overrides } from "../helpers/networks";
+import { getMarketConfig, getSinger } from "../helpers/utils";
+import { Strategy, tEthereumAddress } from "../../src";
+import { ethers } from "hardhat";
+import { ERC20, ParallelVault } from "../../typechain-types";
+import { ZEROADDRESS } from "../helpers/constants";
 
 /**
  * Deploys contracts for all networks
  */
 export const main = async () => {
-  try {
-    let addresses: ProjectAddresses;
-    try {
-      addresses = await getProjectAddresses();
-    } catch (error) {
-      addresses = {} as ProjectAddresses;
+  const marketConfig = getMarketConfig();
+  const signer = getSinger();
+
+  const factory = await deployFactory(signer);
+
+  const aaveStrategyImpl = await deployAAVEStrategyImpl(signer);
+
+  //deploy xToken and vault
+  for (const key in marketConfig.Tokens) {
+    if (Object.prototype.hasOwnProperty.call(marketConfig.Tokens, key)) {
+      const tokenConfig = marketConfig.Tokens[key];
+
+      const token = await getERC20(tokenConfig.address);
+      const tokenSymbol = await token.symbol();
+      const tokenName = await token.name();
+      //issue is here
+      const xToken = await factory
+        .connect(signer)
+        .deployXERC20(`x${tokenName}`, `x${tokenSymbol}`, factory.address);
+      const vault = await factory
+        .connect(signer)
+        .deployLockbox(
+          xToken.address,
+          tokenConfig.address,
+          tokenConfig.address === ZEROADDRESS
+        );
+
+      let strategy;
+      switch (tokenConfig.strategy) {
+        case Strategy.AAVE:
+          strategy = await deployAAVEStrategy(
+            signer,
+            aaveStrategyImpl,
+            tokenConfig.strategyPool,
+            vault.address,
+            marketConfig.upgradeAdmin
+          );
+          break;
+        case Strategy.ETHAAVE:
+          strategy = await deployETHAAVEStrategy(
+            signer,
+            marketConfig.wstETH!,
+            tokenConfig.strategyPool,
+            vault.address,
+            marketConfig.upgradeAdmin
+          );
+          break;
+        default:
+          throw new Error("invalid strategy");
+      }
+
+      await vault.connect(signer).setStrategy(strategy);
     }
-
-    await Promise.all(
-      [projectConstants.appChain, ...projectConstants.nonAppChains].map(
-        async (chain: ChainSlug) => {
-          let allDeployed = false;
-          const signer = getSignerFromChainSlug(chain);
-
-          let chainAddresses: TokenAddresses = addresses[chain]?.[token]
-            ? (addresses[chain]?.[token] as TokenAddresses)
-            : ({} as TokenAddresses);
-
-          const siblings = isAppChain(chain)
-            ? projectConstants.nonAppChains
-            : [projectConstants.appChain];
-
-          while (!allDeployed) {
-            const results: ReturnObj = await deploy(
-              isAppChain(chain),
-              signer,
-              chain,
-              siblings,
-              chainAddresses
-            );
-
-            allDeployed = results.allDeployed;
-            chainAddresses = results.deployedAddresses;
-          }
-        }
-      )
-    );
-  } catch (error) {
-    console.log("Error in deploying contracts", error);
   }
 };
 
-/**
- * Deploys network-independent contracts
- */
-const deploy = async (
-  isAppChain: boolean,
-  socketSigner: Wallet,
-  chainSlug: number,
-  siblings: number[],
-  deployedAddresses: TokenAddresses
-): Promise<ReturnObj> => {
-  let allDeployed = false;
-
-  let deployUtils: DeployParams = {
-    addresses: deployedAddresses,
-    signer: socketSigner,
-    currentChainSlug: chainSlug,
-  };
-
-  try {
-    deployUtils.addresses.isAppChain = isAppChain;
-    if (isAppChain) {
-      deployUtils = await deployAppChainContracts(deployUtils);
-    } else {
-      deployUtils = await deployNonAppChainContracts(deployUtils);
-    }
-
-    for (let sibling of siblings) {
-      deployUtils = await deployConnectors(sibling, deployUtils);
-    }
-    allDeployed = true;
-    console.log(deployUtils.addresses);
-    console.log("Contracts deployed!");
-  } catch (error) {
-    console.log(
-      `Error in deploying setup contracts for ${deployUtils.currentChainSlug}`,
-      error
-    );
-  }
-
-  await storeAddresses(deployUtils.addresses, deployUtils.currentChainSlug);
-  return {
-    allDeployed,
-    deployedAddresses: deployUtils.addresses,
-  };
+const getERC20 = async (address: tEthereumAddress) => {
+  const ERC20Factory = await ethers.getContractFactory("ERC20");
+  return ERC20Factory.attach(address) as ERC20;
 };
 
-const deployConnectors = async (
-  sibling: ChainSlug,
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    if (!deployParams.addresses) throw new Error("Addresses not found!");
+const deployFactory = async (signer: Wallet) => {
+  const XERC20FactoryFactory = await ethers.getContractFactory("XERC20Factory");
+  const XERC20Factory = await XERC20FactoryFactory.connect(signer).deploy({
+    ...overrides[await signer.getChainId()],
+  });
+  console.log(
+    "XERC20Factory.deployTransaction.hash:",
+    XERC20Factory.deployTransaction.hash
+  );
+  await XERC20Factory.deployTransaction.wait(1);
 
-    const socket: string = getAddresses(
-      deployParams.currentChainSlug,
-      mode
-    ).Socket;
-    let hub: string;
-    const addr: TokenAddresses = deployParams.addresses;
-    if (addr.isAppChain) {
-      const a = addr as AppChainAddresses;
-      if (!a.Controller) throw new Error("Controller not found!");
-      hub = a.Controller;
-    } else {
-      const a = addr as NonAppChainAddresses;
-      if (!a.Vault) throw new Error("Vault not found!");
-      hub = a.Vault;
-    }
+  console.log("XERC20Factory deployed to:", XERC20Factory.address);
 
-    for (let intType of integrationTypes) {
-      console.log(hub, socket, sibling);
-      const connector: Contract = await getOrDeploy(
-        SuperBridgeContracts.ConnectorPlug,
-        "contracts/superbridge/ConnectorPlug.sol",
-        [hub, socket, sibling],
-        deployParams
-      );
-
-      console.log("connectors", sibling.toString(), intType, connector.address);
-
-      deployParams.addresses = createObj(
-        deployParams.addresses,
-        ["connectors", sibling.toString(), intType],
-        connector.address
-      );
-    }
-
-    console.log(deployParams.addresses);
-    console.log("Connector Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying connector contracts", error);
-  }
-
-  return deployParams;
+  return XERC20FactoryFactory.attach(XERC20Factory.address);
 };
 
-const deployAppChainContracts = async (
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    const exchangeRate: Contract = await getOrDeploy(
-      SuperBridgeContracts.ExchangeRate,
-      "contracts/superbridge/ExchangeRate.sol",
-      [],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.ExchangeRate] =
-      exchangeRate.address;
+const deployAAVEStrategyImpl = async (signer: Wallet) => {
+  const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
+  const AaveStrategyImpl = await AaveStrategyFactory.connect(signer).deploy({
+    ...overrides[await signer.getChainId()],
+  });
+  await AaveStrategyImpl.deployTransaction.wait(1);
 
-    if (!deployParams.addresses[SuperBridgeContracts.MintableToken])
-      throw new Error("Token not found on app chain");
+  console.log("AaveStrategyImpl deployed to:", AaveStrategyImpl.address);
 
-    const controller: Contract = await getOrDeploy(
-      projectConstants.isFiatTokenV2_1
-        ? SuperBridgeContracts.FiatTokenV2_1_Controller
-        : SuperBridgeContracts.Controller,
-      projectConstants.isFiatTokenV2_1
-        ? "contracts/superbridge/FiatTokenV2_1/FiatTokenV2_1_Controller.sol"
-        : "contracts/superbridge/Controller.sol",
-      [
-        deployParams.addresses[SuperBridgeContracts.MintableToken],
-        exchangeRate.address,
-      ],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.Controller] =
-      controller.address;
-    console.log(deployParams.addresses);
-    console.log("Chain Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying chain contracts", error);
-  }
-  return deployParams;
+  return AaveStrategyImpl.address;
 };
 
-const deployNonAppChainContracts = async (
-  deployParams: DeployParams
-): Promise<DeployParams> => {
-  try {
-    if (!deployParams.addresses[SuperBridgeContracts.NonMintableToken])
-      throw new Error("Token not found on chain");
+const deployAAVEStrategy = async (
+  signer: Wallet,
+  impl: tEthereumAddress,
+  aave: tEthereumAddress,
+  vault: tEthereumAddress,
+  proxyAdmin: tEthereumAddress
+) => {
+  const AaveStrategyFactory = await ethers.getContractFactory("AaveStrategy");
+  const initData = AaveStrategyFactory.interface.encodeFunctionData(
+    "initialize",
+    [aave, vault]
+  );
 
-    const vault: Contract = await getOrDeploy(
-      SuperBridgeContracts.Vault,
-      "contracts/superbridge/Vault.sol",
-      [deployParams.addresses[SuperBridgeContracts.NonMintableToken]],
-      deployParams
-    );
-    deployParams.addresses[SuperBridgeContracts.Vault] = vault.address;
-    console.log(deployParams.addresses);
-    console.log("Chain Contracts deployed!");
-  } catch (error) {
-    console.log("Error in deploying chain contracts", error);
-  }
-  return deployParams;
+  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
+  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
+    impl,
+    proxyAdmin,
+    initData,
+    {
+      ...overrides[await signer.getChainId()],
+    }
+  );
+  await ParallelProxy.deployTransaction.wait(1);
+
+  console.log("AAVEStrategy Proxy deployed to:", ParallelProxy.address);
+  console.log("impl:", impl);
+  console.log("proxyAdmin:", proxyAdmin);
+  console.log("initData:", initData);
+
+  return ParallelProxy.address;
+};
+
+const deployETHAAVEStrategy = async (
+  signer: Wallet,
+  wstETH: tEthereumAddress,
+  aave: tEthereumAddress,
+  vault: tEthereumAddress,
+  proxyAdmin: tEthereumAddress
+) => {
+  const ETHAaveStrategyFactory = await ethers.getContractFactory(
+    "ETHAaveStrategy"
+  );
+  const IMPL = await ETHAaveStrategyFactory.connect(signer).deploy(
+    wstETH,
+    aave,
+    vault,
+    {
+      ...overrides[await signer.getChainId()],
+    }
+  );
+  await IMPL.deployTransaction.wait(1);
+  console.log("ETHAAVEStrategy IMPL deployed to:", IMPL.address);
+  console.log("wstETH:", wstETH);
+  console.log("aave:", aave);
+  console.log("vault:", vault);
+
+  const initData = ETHAaveStrategyFactory.interface.encodeFunctionData(
+    "initialize",
+    []
+  );
+  const ParallelProxyFactory = await ethers.getContractFactory("ParallelProxy");
+  const ParallelProxy = await ParallelProxyFactory.connect(signer).deploy(
+    IMPL.address,
+    proxyAdmin,
+    initData,
+    {
+      ...overrides[await signer.getChainId()],
+    }
+  );
+  await ParallelProxy.deployTransaction.wait(1);
+
+  console.log("ETHAAVEStrategy Proxy deployed to:", ParallelProxy.address);
+  console.log("impl:", IMPL.address);
+  console.log("proxyAdmin:", proxyAdmin);
+  console.log("initData:", initData);
+
+  return ParallelProxy.address;
 };
 
 main()
