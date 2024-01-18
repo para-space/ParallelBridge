@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.8.4 <0.9.0;
 
-import {IXERC20} from "../interfaces/IXERC20.sol";
+import {IXERC20} from "./interfaces/IXERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {IXERC20Lockbox} from "../interfaces/IXERC20Lockbox.sol";
+import {IXERC20Lockbox} from "./interfaces/IXERC20Lockbox.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IStrategy} from "../interfaces/IStrategy.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
 
 contract XERC20Lockbox is Ownable, IXERC20Lockbox {
     using SafeERC20 for IERC20;
@@ -37,17 +37,6 @@ contract XERC20Lockbox is Ownable, IXERC20Lockbox {
      * @notice Address of the strategy contract
      */
     address public strategy;
-    /**
-     * @notice Whether the ERC20 token can be withdraw
-     */
-    bool public isWithdrawable;
-
-    error NotWithdrawable();
-
-    modifier onlyWithdrawable() {
-        if (!isWithdrawable) revert NotWithdrawable();
-        _;
-    }
 
     /**
      * @notice Constructor
@@ -62,7 +51,8 @@ contract XERC20Lockbox is Ownable, IXERC20Lockbox {
         address _erc20,
         bool _isGasToken,
         address initialOwner
-    ) Ownable(initialOwner) {
+    ) {
+        _transferOwnership(initialOwner);
         XERC20 = IXERC20(_xerc20);
         ERC20 = IERC20(_erc20);
         IS_GAS_TOKEN = _isGasToken;
@@ -122,7 +112,7 @@ contract XERC20Lockbox is Ownable, IXERC20Lockbox {
      * @param _amount The amount of tokens to withdraw
      */
 
-    function withdraw(uint256 _amount) external onlyWithdrawable {
+    function withdraw(uint256 _amount) external {
         _withdraw(msg.sender, _amount);
     }
 
@@ -133,10 +123,7 @@ contract XERC20Lockbox is Ownable, IXERC20Lockbox {
      * @param _amount The amount of tokens to withdraw
      */
 
-    function withdrawTo(
-        address _to,
-        uint256 _amount
-    ) external onlyWithdrawable {
+    function withdrawTo(address _to, uint256 _amount) external {
         _withdraw(_to, _amount);
     }
 
@@ -191,13 +178,6 @@ contract XERC20Lockbox is Ownable, IXERC20Lockbox {
      */
     function setExchangeRate(uint256 _exchangeRate) external onlyOwner {
         exchangeRate = _exchangeRate;
-    }
-
-    /**
-     * @notice Update isWithdrawable, only owner can call this function
-     */
-    function setWithdrawable(bool _isWithdrawable) external onlyOwner {
-        isWithdrawable = _isWithdrawable;
     }
 
     /**

@@ -4,9 +4,9 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../interfaces/IXERC20Lockbox.sol";
-import "../interfaces/IStrategy.sol";
-import "../interfaces/IAAVEPool.sol";
+import "./interfaces/IXERC20Lockbox.sol";
+import "./interfaces/IStrategy.sol";
+import "./interfaces/IAAVEPool.sol";
 
 contract AaveStrategy is Initializable {
     using SafeERC20 for IERC20;

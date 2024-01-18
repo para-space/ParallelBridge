@@ -1,19 +1,7 @@
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 
-import { eEthereumNetwork, IConfiguration, Strategy, Tokens } from "../../src";
-
-if (!process.env.SOCKET_OWNER_ADDRESS)
-  throw Error("Socket owner address not present");
-export const socketOwner = process.env.SOCKET_OWNER_ADDRESS;
-
-if (!process.env.SOCKET_SIGNER_KEY)
-  throw Error("Socket signer key not present");
-export const socketSignerKey = process.env.SOCKET_SIGNER_KEY;
-
-console.log("========================================================");
-console.log(`Owner address configured to ${socketOwner}`);
-console.log("========================================================");
+import { eEthereumNetwork, IConfiguration, Strategy } from "../types";
 
 export const ZEROADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -43,7 +31,7 @@ export const SepoliaConfig: IConfiguration = {
     },
     WETH: {
       address: "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c",
-      strategy: Strategy.AAVE,
+      strategy: Strategy.ETHAAVE,
       strategyPool: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
     },
     USDT: {

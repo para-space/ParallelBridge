@@ -4,12 +4,12 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../interfaces/IStrategy.sol";
-import "../interfaces/IAAVEPool.sol";
-import "../interfaces/IWETH.sol";
-import "../interfaces/IwstETH.sol";
-import "../interfaces/ILido.sol";
-import "../interfaces/IXERC20Lockbox.sol";
+import "./interfaces/IStrategy.sol";
+import "./interfaces/IAAVEPool.sol";
+import "./interfaces/IWETH.sol";
+import "./interfaces/IwstETH.sol";
+import "./interfaces/ILido.sol";
+import "./interfaces/IXERC20Lockbox.sol";
 
 contract ETHAaveStrategy is Initializable {
     using SafeERC20 for IERC20;
@@ -48,6 +48,7 @@ contract ETHAaveStrategy is Initializable {
         IAAVEPool(aavePool).withdraw(wstETH, wstETHAmount, address(this));
         //2. wstETH -> stETH
         IwstETH(wstETH).unwrap(wstETHAmount);
+        //3. transfer stETH to vault, since we can't withdraw stETH to ETH instantly
         ILido(lido).transfer(vault, amount_);
         return amount_;
     }
@@ -73,4 +74,6 @@ contract ETHAaveStrategy is Initializable {
         //3. wstETH -> AAVE
         IAAVEPool(aavePool).supply(wstETH, wstETHAmount, address(this), 0);
     }
+
+    receive() external payable {}
 }

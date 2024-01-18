@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.8.4 <0.9.0;
 
 import {XERC20} from "./XERC20.sol";
-import {IXERC20Factory} from "../interfaces/IXERC20Factory.sol";
+import {IXERC20Factory} from "./interfaces/IXERC20Factory.sol";
 import {XERC20Lockbox} from "./XERC20Lockbox.sol";
 import {CREATE3} from "./lib/CREATE3.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -13,7 +13,7 @@ contract XERC20Factory is IXERC20Factory {
     /**
      * @notice Address of the xerc20 maps to the address of its lockbox if it has one
      */
-    mapping(address => address) internal _lockboxRegistry;
+    mapping(address => address) public lockboxRegistry;
 
     /**
      * @notice The set of registered lockboxes
@@ -24,6 +24,34 @@ contract XERC20Factory is IXERC20Factory {
      * @notice The set of registered XERC20 tokens
      */
     EnumerableSet.AddressSet internal _xerc20RegistryArray;
+
+    /**
+     * @notice Deploys XERC20 & XERC20Lockbox contract for a token
+     * @dev _limits and _minters must be the same length
+     * @param _name The name of the token
+     * @param _symbol The symbol of the token
+     * @param _minterLimits The array of limits that you are adding (optional, can be an empty array)
+     * @param _burnerLimits The array of limits that you are adding (optional, can be an empty array)
+     * @param _bridges The array of bridges that you are adding (optional, can be an empty array)
+     */
+    function deployToken(
+        address _baseToken,
+        bool _isGasToken,
+        string memory _name,
+        string memory _symbol,
+        uint256[] memory _minterLimits,
+        uint256[] memory _burnerLimits,
+        address[] memory _bridges
+    ) external {
+        address xERC20 = deployXERC20(
+            _name,
+            _symbol,
+            _minterLimits,
+            _burnerLimits,
+            _bridges
+        );
+        deployLockbox(xERC20, _baseToken, _isGasToken);
+    }
 
     /**
      * @notice Deploys an XERC20 contract using CREATE3
@@ -41,7 +69,7 @@ contract XERC20Factory is IXERC20Factory {
         uint256[] memory _minterLimits,
         uint256[] memory _burnerLimits,
         address[] memory _bridges
-    ) external returns (address _xerc20) {
+    ) public returns (address _xerc20) {
         _xerc20 = _deployXERC20(
             _name,
             _symbol,
@@ -66,7 +94,7 @@ contract XERC20Factory is IXERC20Factory {
         address _xerc20,
         address _baseToken,
         bool _isGasToken
-    ) external returns (address payable _lockbox) {
+    ) public returns (address payable _lockbox) {
         if (
             (_baseToken == address(0) && !_isGasToken) ||
             (_isGasToken && _baseToken != address(0))
@@ -76,7 +104,7 @@ contract XERC20Factory is IXERC20Factory {
 
         if (XERC20(_xerc20).owner() != msg.sender)
             revert IXERC20Factory_NotOwner();
-        if (_lockboxRegistry[_xerc20] != address(0))
+        if (lockboxRegistry[_baseToken] != address(0))
             revert IXERC20Factory_LockboxAlreadyDeployed();
 
         _lockbox = _deployLockbox(_xerc20, _baseToken, _isGasToken);
@@ -148,6 +176,6 @@ contract XERC20Factory is IXERC20Factory {
 
         XERC20(_xerc20).setLockbox(address(_lockbox));
         EnumerableSet.add(_lockboxRegistryArray, _lockbox);
-        _lockboxRegistry[_xerc20] = _lockbox;
+        lockboxRegistry[_baseToken] = _lockbox;
     }
 }

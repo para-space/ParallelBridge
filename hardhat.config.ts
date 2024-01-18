@@ -1,10 +1,5 @@
-import "@nomiclabs/hardhat-ethers";
-import "@nomiclabs/hardhat-etherscan";
 import "@typechain/hardhat";
-import "hardhat-preprocessor";
-import "hardhat-deploy";
-import "hardhat-abi-exporter";
-import "hardhat-change-network";
+import "@nomicfoundation/hardhat-toolbox";
 
 import { config as dotenvConfig } from "dotenv";
 import type { HardhatUserConfig } from "hardhat/config";
@@ -15,7 +10,7 @@ import type {
 import { resolve } from "path";
 import fs from "fs";
 
-import { eEthereumNetwork } from "./src";
+import { eEthereumNetwork } from "./script/types";
 import {
   ARBITRUM_ETHERSCAN_KEY,
   ARBITRUM_GOERLI_ETHERSCAN_KEY,
@@ -31,9 +26,9 @@ const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
 dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
 
 // Ensure that we have all the environment variables we need.
-if (!process.env.SOCKET_SIGNER_KEY) throw new Error("No private key found");
+if (!process.env.SIGNER_KEY) throw new Error("No private key found");
 const privateKey: HardhatNetworkAccountUserConfig = process.env
-  .SOCKET_SIGNER_KEY as unknown as HardhatNetworkAccountUserConfig;
+  .SIGNER_KEY as unknown as HardhatNetworkAccountUserConfig;
 
 function getChainConfig(network: eEthereumNetwork): NetworkUserConfig {
   return {
@@ -53,10 +48,6 @@ function getRemappings() {
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
-  abiExporter: {
-    path: "artifacts/abi",
-    flat: true,
-  },
   etherscan: {
     apiKey: {
       localhost: ETHERSCAN_KEY,
@@ -95,21 +86,6 @@ const config: HardhatUserConfig = {
     cache: "./cache_hardhat",
     artifacts: "./artifacts",
     tests: "./test",
-  },
-  // This fully resolves paths for imports in the ./lib directory for Hardhat
-  preprocess: {
-    eachLine: (hre) => ({
-      transform: (line: string) => {
-        if (line.match(/^\s*import /i)) {
-          getRemappings().forEach(([find, replace]) => {
-            if (line.match(find)) {
-              line = line.replace(find, replace);
-            }
-          });
-        }
-        return line;
-      },
-    }),
   },
   solidity: {
     version: "0.8.20",

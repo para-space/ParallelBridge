@@ -33,6 +33,12 @@ interface IXERC20Factory {
     error IXERC20Factory_LockboxAlreadyDeployed();
 
     /**
+     * @notice Reverts when a xERC20 is already deployed
+     */
+
+    error IXERC20Factory_XERC20AlreadyDeployed();
+
+    /**
      * @notice Reverts when a the length of arrays sent is incorrect
      */
     error IXERC20Factory_InvalidLength();
