@@ -41,6 +41,7 @@ contract ParallelNFTVault is
     error NotWithdrawable();
     error NotDepositor(uint256 tokenId);
     error NFTNotAvailable(uint256 tokenId);
+    error  NotStrategy();
 
     event NFTWithdrawn(address assetAddr, address receiver, uint256 tokenId);
 
@@ -112,6 +113,22 @@ contract ParallelNFTVault is
 
         INFTStrategy(strategy).depositNFTs(assetAddr_, tokenIds_);
     }
+
+        function pullNFTs(
+        address assetAddr_,
+        uint256[] memory tokenIds_
+    ) external notShutdown  nonReentrant {
+
+        if (msg.sender != strategy) revert NotStrategy();
+        uint256 length = tokenIds_.length;
+
+        for (uint256 i; i < length; ++i) {
+            uint256 tokenId = tokenIds_[i];
+            _transferERC721(assetAddr_, strategy, tokenId);
+        }
+        // No need to call depositNFTs, as call is coming from strategy contract, which will have the data for assetAddr_ and tokenIds_
+    }
+
 
     function _receiveNFTs(
         address assetAddr_,
