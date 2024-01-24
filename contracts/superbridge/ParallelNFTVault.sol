@@ -98,6 +98,21 @@ contract ParallelNFTVault is
         }
     }
 
+    function depositToStrategy(
+        address assetAddr_,
+        uint256[] memory tokenIds_
+    ) public notShutdown onlyOwner {
+        if (strategy == address(0)) revert ZeroAddress();
+        uint256 length = tokenIds_.length;
+
+        for (uint256 i; i < length; ++i) {
+            uint256 tokenId = tokenIds_[i];
+            _transferERC721(assetAddr_, strategy, tokenId);
+        }
+
+        INFTStrategy(strategy).depositNFTs(assetAddr_, tokenIds_);
+    }
+
     function _receiveNFTs(
         address assetAddr_,
         uint256[] memory tokenIds_
